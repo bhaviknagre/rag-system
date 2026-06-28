@@ -24,6 +24,7 @@ versioning, FastAPI for serving, and Docker for containerized deployment.
 
 ## Architecture
 
+```
 data/raw/  (.txt, .pdf, .docx)
      │
      ▼
@@ -45,8 +46,7 @@ data/raw/  (.txt, .pdf, .docx)
      ▼               /ingest
   Generator         /health
   (Ollama)
-
-
+```
 
 
 **Flow for `/ask`:** question → embed query → similarity search in Chroma → retrieve top-k
