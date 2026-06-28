@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+.env
+data/vectorstore/*
+test_setup.py
+README.md
+.dvc/
+*.dvc
