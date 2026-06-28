@@ -24,36 +24,28 @@ versioning, FastAPI for serving, and Docker for containerized deployment.
 
 ## Architecture
 
-┌──────────────┐
-                │  data/raw/   │  (.txt, .pdf, .docx)
-                └──────┬───────┘
-                       │
-                ┌──────▼───────┐
-                │   Loader     │  extracts plain text
-                └──────┬───────┘
-                       │
-                ┌──────▼───────┐
-                │   Chunker    │  splits into overlapping chunks
-                └──────┬───────┘
-                       │
-                ┌──────▼───────┐
-                │   Embedder   │  sentence-transformers (local)
-                └──────┬───────┘
-                       │
-                ┌──────▼───────┐
-                │  ChromaDB    │  persistent vector store
-                └──────┬───────┘
-                       │
-          ┌────────────┴────────────┐
-          │                         │
-   ┌──────▼───────┐         ┌───────▼──────┐
-   │  Retriever   │ ◄────── │   FastAPI    │
-   └──────┬───────┘         │   /ask       │
-          │                 │   /ingest    │
-   ┌──────▼───────┐         │   /health    │
-   │  Generator   │         └──────────────┘
-   │  (Ollama)    │
-   └──────────────┘
+data/raw/  (.txt, .pdf, .docx)
+     │
+     ▼
+  Loader          extracts plain text
+     │
+     ▼
+  Chunker         splits into overlapping chunks
+     │
+     ▼
+  Embedder        sentence-transformers (local)
+     │
+     ▼
+ ChromaDB         persistent vector store
+     │
+     ├──────────────────┐
+     ▼                  ▼
+  Retriever         FastAPI
+     │               /ask
+     ▼               /ingest
+  Generator         /health
+  (Ollama)
+
 
 
 
@@ -80,7 +72,7 @@ chunks → build context → pass to local LLM via Ollama → return grounded an
 ---
 
 ## Project Structure
-
+'''
 rag-system/
 ├── data/
 │ ├── raw/ # source documents (DVC-tracked)
@@ -113,7 +105,7 @@ rag-system/
 ├── .env.example
 └── README.md
 
-
+'''
 ---
 
 ## Setup
