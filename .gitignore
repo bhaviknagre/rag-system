@@ -12,8 +12,6 @@ data/vectorstore/*
 !data/processed/.gitkeep
 !data/vectorstore/.gitkeep
 
-/data/raw.dvc
-/data/processed.dvc
 
 .vscode/
 .idea/
