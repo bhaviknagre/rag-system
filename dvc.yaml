@@ -1,0 +1,13 @@
+stages:
+  ingest:
+    cmd: python scripts/ingest.py --reset
+    deps:
+      - data/raw
+      - src/ingestion/loader.py
+      - src/ingestion/chunker.py
+      - src/vectorstore/store.py
+      - src/embedings/embedder.py
+      - scripts/ingest.py
+    outs:
+      - data/vectorstore:
+          cache: false

@@ -1,0 +1,36 @@
+schema: '2.0'
+stages:
+  ingest:
+    cmd: python scripts/ingest.py --reset
+    deps:
+    - path: data/raw
+      hash: md5
+      md5: 88c78cd61f51a16d6126b569e1ece92c.dir
+      size: 1088515
+      nfiles: 3
+    - path: scripts/ingest.py
+      hash: md5
+      md5: f962fcc77b704fb8aa3a4b2708252716
+      size: 740
+    - path: src/embedings/embedder.py
+      hash: md5
+      md5: 633cf2106cd3cf30b68b0168a208dcc1
+      size: 1196
+    - path: src/ingestion/chunker.py
+      hash: md5
+      md5: d92d03151903413614ea8b1029d57baf
+      size: 1411
+    - path: src/ingestion/loader.py
+      hash: md5
+      md5: aea54f0df4d85887241a9c2098936333
+      size: 2141
+    - path: src/vectorstore/store.py
+      hash: md5
+      md5: 07943a608c8fab60da926ff8bb8270de
+      size: 3701
+    outs:
+    - path: data/vectorstore
+      hash: md5
+      md5: c5ac4b01817f9289322147da7a3373c7.dir
+      size: 819364
+      nfiles: 5
