@@ -72,41 +72,40 @@ chunks → build context → pass to local LLM via Ollama → return grounded an
 ---
 
 ## Project Structure
-'''
+
+```
 rag-system/
 ├── data/
-│ ├── raw/ # source documents (DVC-tracked)
-│ ├── processed/ # (reserved for intermediate artifacts)
-│ └── vectorstore/ # ChromaDB persistent storage
+│   ├── raw/                    # source documents (DVC-tracked)
+│   ├── processed/              # reserved for intermediate artifacts
+│   └── vectorstore/            # ChromaDB persistent storage
 ├── src/
-│ ├── config.py # centralized settings (.env-driven)
-│ ├── ingestion/
-│ │ ├── loader.py # multi-format document loading
-│ │ └── chunker.py # text chunking with overlap
-│ ├── embeddings/
-│ │ └── embedder.py # sentence-transformers wrapper
-│ ├── vectorstore/
-│ │ └── store.py # ChromaDB add/query/reset
-│ ├── retrieval/
-│ │ └── retriever.py # retrieval + context formatting
-│ ├── generation/
-│ │ └── generator.py # Ollama-based answer generation
-│ └── pipeline.py # orchestrates ingest() + ask()
+│   ├── config.py               # centralized settings (.env-driven)
+│   ├── ingestion/
+│   │   ├── loader.py           # multi-format document loading
+│   │   └── chunker.py          # text chunking with overlap
+│   ├── embeddings/
+│   │   └── embedder.py         # sentence-transformers wrapper
+│   ├── vectorstore/
+│   │   └── store.py            # ChromaDB add/query/reset
+│   ├── retrieval/
+│   │   └── retriever.py        # retrieval + context formatting
+│   ├── generation/
+│   │   └── generator.py        # Ollama-based answer generation
+│   └── pipeline.py             # orchestrates ingest() + ask()
 ├── api/
-│ ├── main.py # FastAPI app: /health /ingest /ask
-│ └── schemas.py # Pydantic request/response models
+│   ├── main.py                 # FastAPI app: /health /ingest /ask
+│   └── schemas.py              # Pydantic request/response models
 ├── scripts/
-│ └── ingest.py # CLI ingestion entrypoint
-├── dvc.yaml # DVC pipeline definition
-├── dvc.lock # DVC pipeline state (auto-generated)
+│   └── ingest.py               # CLI ingestion entrypoint
+├── dvc.yaml                    # DVC pipeline definition
+├── dvc.lock                    # DVC pipeline state (auto-generated)
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
 ├── .env.example
 └── README.md
-
-'''
----
+```
 
 ## Setup
 
