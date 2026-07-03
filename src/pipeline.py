@@ -1,98 +1,139 @@
-from typing import Dict
+import logging
+from typing import Dict, Optional
 
+from src.config import Settings
 from src.ingestion.loader import load_documents_from_directory
 from src.ingestion.chunker import chunk_documents
-from src.vectorstore.store import get_vector_store
-from src.retrieval.retriever import get_retriever
+from src.vectorstore.store import (
+    add_chunks_to_store,
+    query_store,
+    reset_store,
+    count_chunks
+)
 from src.generation.generator import get_generator
-from src.config import settings
+
+logger = logging.getLogger(__name__)
+settings = Settings()
 
 
-def raw_ingest(raw_dir: str = "data/raw", reset: bool = False):
-    store = get_vector_store()
+# Context builder
+def _build_context(retrieved_chunks: list) -> str:
+    if not retrieved_chunks:
+        return ""
+
+    parts = []
+    for i, chunk in enumerate(retrieved_chunks, start=1):
+        text = chunk["text"]
+        window = chunk.get("window_context", "")
+        if window:
+            text = f"{window}\n[Focus]: {text}"
+
+        parts.append(f"[Source {i}: {chunk['doc_id']}]\n{text}")
+
+    return "\n\n".join(parts)
+
+
+# Ingest
+def ingest(raw_dir: str = "data/raw",provider: Optional[str] = None,strategy: Optional[str] = None,reset: bool = False) -> Dict:
+    provider = provider or settings.vector_db_provider
+    strategy = strategy or settings.chunking_strategy
+
+    logger.info(f"Starting ingestion | provider={provider} | strategy={strategy} | reset={reset}")
 
     if reset:
-        print("[INGEST] Resetting vector store")
-        store.reset()
+        logger.info(f"Resetting store: {provider}")
+        reset_store(provider)
 
-    print(f"[INGEST] Loading from {raw_dir}")
-    documents = load_documents_from_directory(raw_dir)
+    # Step 1: Load
+    raw_docs = load_documents_from_directory(raw_dir)
+    if not raw_docs:
+        return {
+            "status": "no_documents_found",
+            "provider": provider,
+            "strategy": strategy,
+            "documents_loaded": 0,
+            "chunks_created": 0,
+            "chunks_added": 0,
+            "total_chunks_in_store": count_chunks(provider)
+        }
 
-    print(f"[INGEST] Documents loaded: {len(documents)}")
-    if not documents:
-        return {"status": "no_documents"}
+    # Step 2: Chunk
+    chunks = chunk_documents(raw_docs, strategy=strategy)
 
-    chunks = chunk_documents(documents)
+    # Step 3: Embed + store
+    added = add_chunks_to_store(chunks, provider=provider)
 
-    print(f"[INGEST] Chunks created: {len(chunks)}")
-
-    if len(chunks) == 0:
-        return {"status": "no_chunks"}
-
-    print("[INGEST] First chunk preview:", chunks[0])
-
-    added = store.add_chunks(chunks)
-
-    print(f"[INGEST] Added to vector store: {added}")
-    print(f"[INGEST] Total in DB: {store.count()}")
-
-    return {
+    summary = {
         "status": "success",
-        "documents_loaded": len(documents),
+        "provider": provider,
+        "strategy": strategy,
+        "documents_loaded": len(raw_docs),
         "chunks_created": len(chunks),
         "chunks_added": added,
-        "total_chunks_in_store": store.count()
+        "total_chunks_in_store": count_chunks(provider)
     }
 
+    logger.info(f"Ingestion complete: {summary}")
+    return summary
 
-def ask(question: str, top_k: int | None = None) -> Dict:
-    retriever = get_retriever()
-    generator = get_generator()
 
+
+# Ask
+def ask(question: str,provider: Optional[str] = None,top_k: Optional[int] = None) -> Dict:
+    if not question or not question.strip():
+        raise ValueError("Question cannot be empty")
+
+    provider = provider or settings.vector_db_provider
     top_k = top_k or settings.top_k
 
-    retrieved_chunks = retriever.retrieve(question, top_k=top_k)
-    context = retriever.retrieve_context(question, top_k=top_k)
+    logger.info(f"Query received | provider={provider} | question={question[:60]}")
 
-    answer = generator.generate(question, context)
+    # Step 1: Retrieve
+    retrieved = query_store(
+        query=question,
+        top_k=top_k,
+        provider=provider
+    )
+
+    # Step 2: Build context
+    context = _build_context(retrieved)
+
+    # Step 3: Generate
+    generator = get_generator()
+    answer = generator.generate(question=question, context=context)
 
     sources = [
         {
-            "doc_id": chunk["doc_id"],
-            "source": chunk["source"],
-            "distance": round(chunk["distance"], 4),
+            "doc_id": r["doc_id"],
+            "source": r["source"],
+            "score": r["score"],
+            "strategy": r.get("strategy", "")
         }
-        for chunk in retrieved_chunks
+        for r in retrieved
     ]
 
     return {
         "question": question,
         "answer": answer,
-        "sources": sources,
+        "provider": provider,
+        "sources": sources
     }
 
 
 if __name__ == "__main__":
-    print("Ingesting documents...\n")
+    logging.basicConfig(level=logging.INFO)
+    provider = "chroma"
+    strategy = "recursive"
 
-    summary = raw_ingest(
-        raw_dir=settings.documents_directory,
-        reset=True,
-    )
-
-    print("\nIngestion Summary")
-    print(summary)
-
-    print("\nTesting question answering...\n")
-
-    response = ask("What is the main topic of the documents?")
-
-    print(f"Question: {response['question']}")
-    print(f"Answer: {response['answer']}")
-
+    print(f"=== Ingesting | provider={provider} | strategy={strategy} ===")
+    summary = ingest(provider=provider, strategy=strategy, reset=True)
+    for k, v in summary.items():
+        print(f"  {k}: {v}")
+    print(f"\n=== Asking | provider={provider} ===")
+    result = ask("What is this document about?", provider=provider)
+    print(f"\nQuestion : {result['question']}")
+    print(f"Answer   : {result['answer']}")
+    print(f"Provider : {result['provider']}")
     print("\nSources:")
-    for source in response["sources"]:
-        print(
-            f"- {source['source']} "
-            f"(distance={source['distance']})"
-        )
+    for s in result["sources"]:
+        print(f"  [{s['doc_id']}] score={s['score']} | strategy={s['strategy']}")

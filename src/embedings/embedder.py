@@ -1,49 +1,25 @@
-from typing import List
-from sentence_transformers import SentenceTransformer
+from langchain_huggingface import HuggingFaceEmbeddings
 from src.config import settings
 
+_embeddings_instance = None
 
-class Embedder:
-    _instance = None
-    _model = None
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._model = SentenceTransformer(settings.embedding_model)
-        return cls._instance
-
-    def embed(self, texts: List[str]) -> List[List[float]]:
-        embeddings = self._model.encode(
-            texts,
-            show_progress_bar=False,
-            convert_to_numpy=True,
+def get_embeddings() -> HuggingFaceEmbeddings:
+    global _embeddings_instance
+    if _embeddings_instance is None:
+        _embeddings_instance = HuggingFaceEmbeddings(
+            model_name=settings.embedding_model,
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True}
         )
-        return embeddings.tolist()
-
-    def embed_query(self, query: str) -> List[float]:
-        return self.embed([query])[0]
-
-
-_embedder = None
-
-
-def get_embedder() -> Embedder:
-    global _embedder
-    if _embedder is None:
-        _embedder = Embedder()
-    return _embedder
+    return _embeddings_instance
 
 
 if __name__ == "__main__":
-    embedder = get_embedder()
+    embeddings = get_embeddings()
+    vectors = embeddings.embed_documents(["test sentence one", "test sentence two"])
+    print(f"Generated {len(vectors)} embeddings")
+    print(f"Embedding dimension: {len(vectors[0])}")
 
-    sample = [
-        "This is a sample sentence for embedding.",
-        "Another example sentence."
-    ]
-
-    vectors = embedder.embed(sample)
-
-    print(f"Generated {len(vectors)} embeddings for {len(sample)} sentences.")
-    print(f"Embedding dimensions: {len(vectors[0])}")
+    query_vector = embeddings.embed_query("a test query")
+    print(f"Query embedding dimension: {len(query_vector)}")
