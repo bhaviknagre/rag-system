@@ -1,36 +1,83 @@
 schema: '2.0'
 stages:
   ingest:
-    cmd: python scripts/ingest.py --reset
+    cmd: "PYTHONPATH=. python scripts/ingest.py --provider chroma --strategy recursive
+      --raw-dir data/raw --reset true\n"
     deps:
     - path: data/raw
       hash: md5
-      md5: 88c78cd61f51a16d6126b569e1ece92c.dir
-      size: 1088515
-      nfiles: 3
+      md5: 2495817ee10d07d07d42ba40aafb9947.dir
+      size: 10234
+      nfiles: 2
     - path: scripts/ingest.py
       hash: md5
-      md5: f962fcc77b704fb8aa3a4b2708252716
-      size: 740
+      md5: 37fde4c03284fa1e4f74ea0f2b40d8af
+      size: 2213
     - path: src/embedings/embedder.py
       hash: md5
-      md5: 633cf2106cd3cf30b68b0168a208dcc1
-      size: 1196
+      md5: 9e3d5274f78f59c77c2d01836832e2a9
+      size: 851
     - path: src/ingestion/chunker.py
       hash: md5
-      md5: d92d03151903413614ea8b1029d57baf
-      size: 1411
+      md5: 213068155464dc85637d0d3e77e249a7
+      size: 4918
     - path: src/ingestion/loader.py
       hash: md5
       md5: aea54f0df4d85887241a9c2098936333
       size: 2141
     - path: src/vectorstore/store.py
       hash: md5
-      md5: 07943a608c8fab60da926ff8bb8270de
-      size: 3701
+      md5: f9bcb5d1a8ed53fc3db09b4ec8e3d2ec
+      size: 9073
+    params:
+      params.yaml:
+        embedding:
+          model: all-MiniLM-L6-v2
+        ingestion:
+          raw_dir: data/raw
+          provider: chroma
+          strategy: recursive
+          reset: true
+          chunk_size: 500
+          chunk_overlap: 50
     outs:
-    - path: data/vectorstore
+    - path: data/processed/ingestion_metrics.json
       hash: md5
-      md5: c5ac4b01817f9289322147da7a3373c7.dir
-      size: 819364
-      nfiles: 5
+      md5: d974fdd22394119501a31212058b4051
+      size: 104
+    - path: data/processed/ingestion_summary.json
+      hash: md5
+      md5: daf0e7e0ba08f128f0be5b85ec92af90
+      size: 178
+  evaluate:
+    cmd: "PYTHONPATH=. python scripts/evaluate.py --provider chroma --top-k 4\n"
+    deps:
+    - path: data/processed/ingestion_summary.json
+      hash: md5
+      md5: daf0e7e0ba08f128f0be5b85ec92af90
+      size: 178
+    - path: scripts/evaluate.py
+      hash: md5
+      md5: 468a3ae90c2c2ec19c2016e6abbabb5b
+      size: 2630
+    - path: src/pipeline.py
+      hash: md5
+      md5: d50b918fc5357e31ba22f2854bbe4441
+      size: 3991
+    - path: src/retrieval/retriever.py
+      hash: md5
+      md5: 887fd54626812c92f2a2ed8a03d8335b
+      size: 1561
+    - path: src/vectorstore/store.py
+      hash: md5
+      md5: f9bcb5d1a8ed53fc3db09b4ec8e3d2ec
+      size: 9073
+    params:
+      params.yaml:
+        retrieval:
+          top_k: 4
+    outs:
+    - path: data/processed/eval_metrics.json
+      hash: md5
+      md5: 1986765938c512eead5c898a2132072a
+      size: 147

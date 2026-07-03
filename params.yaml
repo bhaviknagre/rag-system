@@ -1,0 +1,16 @@
+ingestion:
+  raw_dir: data/raw
+  provider: chroma                # chroma | pinecone | mongodb
+  strategy: recursive             # recursive | semantic | sentence_window
+  reset: true
+  chunk_size: 500
+  chunk_overlap: 50
+
+retrieval:
+  top_k: 4
+
+embedding:
+  model: all-MiniLM-L6-v2
+
+llm:
+  model: llama3.2:1b

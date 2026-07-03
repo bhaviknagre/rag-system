@@ -1,13 +1,41 @@
 stages:
   ingest:
-    cmd: python scripts/ingest.py --reset
+    cmd: >
+      PYTHONPATH=. python scripts/ingest.py
+      --provider ${ingestion.provider}
+      --strategy ${ingestion.strategy}
+      --raw-dir ${ingestion.raw_dir}
+      --reset ${ingestion.reset}
     deps:
       - data/raw
       - src/ingestion/loader.py
       - src/ingestion/chunker.py
-      - src/vectorstore/store.py
       - src/embedings/embedder.py
+      - src/vectorstore/store.py
       - scripts/ingest.py
+    params:
+      - ingestion
+      - embedding
     outs:
-      - data/vectorstore:
+      - data/processed/ingestion_summary.json:
+          cache: false
+    metrics:
+      - data/processed/ingestion_metrics.json:
+          cache: false
+
+  evaluate:
+    cmd: >
+      PYTHONPATH=. python scripts/evaluate.py
+      --provider ${ingestion.provider}
+      --top-k ${retrieval.top_k}
+    deps:
+      - data/processed/ingestion_summary.json
+      - src/vectorstore/store.py
+      - src/retrieval/retriever.py
+      - src/pipeline.py
+      - scripts/evaluate.py
+    params:
+      - retrieval
+    metrics:
+      - data/processed/eval_metrics.json:
           cache: false
