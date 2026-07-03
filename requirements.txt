@@ -1,13 +1,12 @@
+# ── API ──────────────────────────────────────
 fastapi==0.115.6
 uvicorn[standard]==0.32.1
 pydantic==2.9.2
 pydantic-settings==2.6.1
 python-dotenv==1.0.1
-tqdm==4.67.1
-dvc==3.58.0
 requests==2.32.3
 
-# LangChain core + integrations
+# ── LangChain ────────────────────────────────
 langchain==0.3.13
 langchain-community==0.3.13
 langchain-core==0.3.28
@@ -18,17 +17,23 @@ langchain-pinecone==0.2.0
 langchain-mongodb==0.3.0
 langchain-experimental==0.3.4
 
-# Embedding model backend
+# ── Embeddings ───────────────────────────────
 sentence-transformers==3.3.1
 
-# Vector DB clients 
-chromadb>0.5.5,<0.6.0
+# ── Vector DBs ───────────────────────────────
+chromadb==0.5.23
 pinecone-client==5.0.1
 pymongo==4.10.1
+certifi==2024.12.14
 
-# Document loaders
+# ── Document loaders ─────────────────────────
 pypdf==5.1.0
 python-docx==1.1.2
 unstructured==0.16.11
 
-openai==1.57.4
+# ── Data versioning ──────────────────────────
+dvc==3.50.1
+pathspec==0.11.2
+
+# ── Utilities ────────────────────────────────
+tqdm==4.67.1

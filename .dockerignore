@@ -1,11 +1,26 @@
+# Python
 venv/
+.venv/
 __pycache__/
 *.pyc
-.git/
-.gitignore
+*.pyo
+.pytest_cache/
+
+# Environment — never bake secrets into the image
 .env
-data/vectorstore/*
-test_setup.py
-README.md
+
+# Git + DVC metadata
+.git/
 .dvc/
 *.dvc
+dvc.lock
+
+# Data — mounted as volumes, not baked into image
+data/vectorstore/*
+data/processed/*
+
+# Dev files
+test_setup.py
+*.md
+.gitignore
+.dockerignore

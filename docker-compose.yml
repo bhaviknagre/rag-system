@@ -1,6 +1,7 @@
 version: "3.9"
 
 services:
+
   ollama:
     image: ollama/ollama:latest
     container_name: rag-ollama
@@ -9,9 +10,30 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: rag-ollama-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      # 🔧 REPLACE: change this if you switch LLM models
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: >
+      sh -c "ollama pull llama3.2:1b && echo 'Model pull complete'"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: "no"
 
   rag-api:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: rag-api
     ports:
       - "8000:8000"
@@ -24,8 +46,14 @@ services:
       - ./data/processed:/app/data/processed
       - ./data/vectorstore:/app/data/vectorstore
     depends_on:
-      - ollama
+      ollama:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
 volumes:
   ollama_data:
