@@ -190,6 +190,9 @@ rag-system/
 │   ├── generation/
 │   │   └── generator.py # Ollama LLM generation
 │   └── pipeline.py      # ingest() + ask() — main entry points
+├── workers/
+│   ├── tasks.py        
+│   └── celery_app.py  
 ├── scripts/
 │   ├── ingest.py        # DVC-tracked ingestion script
 │   └── evaluate.py      # DVC-tracked retrieval evaluation
