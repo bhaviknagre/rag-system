@@ -1,12 +1,13 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Any
 
 
-# Ingest
+# ── Ingest ───────────────────────────────────
+
 class IngestRequest(BaseModel):
     provider: Optional[Literal["chroma", "pinecone", "mongodb"]] = Field(
         None,
-        description="Vector DB backend to use. Defaults to VECTOR_DB_PROVIDER in .env"
+        description="Vector DB backend. Defaults to VECTOR_DB_PROVIDER in .env"
     )
     strategy: Optional[Literal["recursive", "semantic", "sentence_window"]] = Field(
         None,
@@ -14,7 +15,7 @@ class IngestRequest(BaseModel):
     )
     reset: bool = Field(
         False,
-        description="If true, wipe the existing collection before ingesting"
+        description="Wipe existing collection before ingesting"
     )
 
 
@@ -28,23 +29,12 @@ class IngestResponse(BaseModel):
     total_chunks_in_store: int = 0
 
 
-# Ask
+# ── Ask ──────────────────────────────────────
+
 class AskRequest(BaseModel):
-    question: str = Field(
-        ...,
-        min_length=1,
-        description="The question to ask the RAG system"
-    )
-    provider: Optional[Literal["chroma", "pinecone", "mongodb"]] = Field(
-        None,
-        description="Vector DB backend to query. Defaults to VECTOR_DB_PROVIDER in .env"
-    )
-    top_k: Optional[int] = Field(
-        None,
-        ge=1,
-        le=20,
-        description="Number of chunks to retrieve. Defaults to TOP_K in .env"
-    )
+    question: str = Field(..., min_length=1)
+    provider: Optional[Literal["chroma", "pinecone", "mongodb"]] = Field(None)
+    top_k: Optional[int] = Field(None, ge=1, le=20)
 
 
 class SourceItem(BaseModel):
@@ -61,7 +51,7 @@ class AskResponse(BaseModel):
     sources: List[SourceItem]
 
 
-# Health
+# ── Health ───────────────────────────────────
 
 class HealthResponse(BaseModel):
     status: str
@@ -70,3 +60,33 @@ class HealthResponse(BaseModel):
     embedding_model: str
     llm_model: str
     chunk_counts: dict
+
+
+# ── Jobs (Celery background tasks) ───────────
+
+class JobSubmittedResponse(BaseModel):
+    job_id: str = Field(..., description="Use this ID to poll /jobs/{job_id}")
+    status: str = Field("queued", description="Initial status — always 'queued'")
+    provider: str
+    strategy: str
+    message: str = "Ingestion job queued. Poll /jobs/{job_id} for status."
+
+
+class JobStatusResponse(BaseModel):
+    job_id: str
+    status: str = Field(
+        ...,
+        description="queued | running | success | failed"
+    )
+    result: Optional[Any] = Field(
+        None,
+        description="Populated when status=success. Contains ingestion summary."
+    )
+    error: Optional[str] = Field(
+        None,
+        description="Populated when status=failed. Contains error message."
+    )
+    progress: Optional[dict] = Field(
+        None,
+        description="Populated when status=running. Contains current step."
+    )

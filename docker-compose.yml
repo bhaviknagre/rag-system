@@ -1,6 +1,20 @@
-version: "3.9"
-
 services:
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: rag-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   ollama:
     image: ollama/ollama:latest
     container_name: rag-ollama
@@ -9,9 +23,29 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     restart: unless-stopped
+  
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: rag-ollama-pull
+    depends_on:
+      - ollama
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: >
+      sh -c "
+        echo 'Waiting for Ollama to be ready...' &&
+        sleep 5 &&
+        ollama pull llama3.2:1b &&
+        echo 'Model ready'
+      "
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: "no"
 
   rag-api:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: rag-api
     ports:
       - "8000:8000"
@@ -19,13 +53,69 @@ services:
       - .env
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     volumes:
       - ./data/raw:/app/data/raw
       - ./data/processed:/app/data/processed
       - ./data/vectorstore:/app/data/vectorstore
     depends_on:
-      - ollama
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  rag-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-worker
+    command: celery -A src.worker.celery_app worker --loglevel=info --concurrency=2
+    env_file:
+      - .env
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - ./data/raw:/app/data/raw
+      - ./data/processed:/app/data/processed
+      - ./data/vectorstore:/app/data/vectorstore
+    depends_on:
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-flower
+    command: celery -A src.worker.celery_app flower --port=5555
+    ports:
+      - "5555:5555"
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+      - rag-worker
     restart: unless-stopped
 
 volumes:
+  redis_data:
   ollama_data:
