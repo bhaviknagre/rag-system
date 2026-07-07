@@ -5,170 +5,213 @@ ingestion and question answering. Built with a microservices mindset —
 FastAPI handles HTTP, Celery + Redis manage heavy ingestion jobs as
 non-blocking background tasks, LangChain abstracts the vector store layer
 so Chroma, Pinecone, and MongoDB Atlas are all switchable without touching
-pipeline logic, and Ollama runs the LLM locally with no API cost. The entire
-stack is containerized with Docker Compose (five services: API, Celery worker,
-Flower monitor, Redis, Ollama) and data pipelines are versioned and
-reproducible via DVC.
-
+pipeline logic, Nginx load balances across multiple API replicas, and Ollama
+runs the LLM locally with zero API cost. The entire stack is containerized
+with Docker Compose, monitored via Prometheus + Grafana, and data pipelines
+are versioned and reproducible via DVC.
 
 ---
 
 ## Architecture
 ``` bash
-Documents (PDF/DOCX/TXT)
-│
-▼
-[ Loader ]  ──── src/ingestion/loader.py
-│
-▼
-[ Chunker ]  ─── recursive | semantic | sentence_window
-│
-▼
-[ Embedder ] ─── all-MiniLM-L6-v2 (local, HuggingFace)
-│
-▼
-[ Vector Store ] ── Chroma (local) | Pinecone | MongoDB Atlas
-│
-(at query time)
-│
-▼
-[ Retriever ] ── top-k similarity search
-│
-▼
-[ Generator ] ── Ollama llama3.2:1b (local, free)
-│
-▼
-[ Answer ]
-POST /ingest
-│
-▼
-[ FastAPI ] ──── returns job_id immediately (HTTP 202)
-│
-▼
-[ Redis Queue ]
-│
-▼
-[ Celery Worker ] ──── runs ingestion in background
-│
-▼
-GET /jobs/{job_id} ──── poll: queued → running → success/failed
+Ingestion Flow (async):
+POST /ingest → Nginx → API → Redis Queue → Celery Worker
+→ Loader → Chunker → Embedder → Vector Store
+GET /jobs/{id} → poll status: queued → running → success
+```
+```bash
+Query Flow (sync):
+POST /ask → Nginx → API → Vector Store (top-k)
+→ Ollama (generate) → Answer + Sources
+```
+```bash
+Monitoring:
+API /metrics → Prometheus → Grafana Dashboards
+Redis        → redis-exporter → Prometheus
+Nginx        → nginx-exporter → Prometheus
+Celery       → Flower (port 5555)
 ```
 ---
 
 ## Tech Stack
 
-```
-| Layer | Technology |
-|---|---|
-| API | FastAPI + Uvicorn |
-| Background Jobs | Celery + Redis |
-| Job Monitoring | Flower |
-| Embeddings | sentence-transformers (all-MiniLM-L6-v2) |
-| LLM | Ollama (llama3.2:1b — local, free) |
-| Vector DB | Chroma / Pinecone / MongoDB Atlas (switchable) |
-| LLM Framework | LangChain |
-| Data Versioning | DVC |
-| Containerization | Docker + docker-compose |
-| Config | pydantic-settings + .env |
+| Layer | Technology | Purpose |
+|---|---|---|
+| Load Balancer | Nginx 1.27 | Rate limiting, reverse proxy, load balancing |
+| API Server | FastAPI + Gunicorn + Uvicorn | HTTP endpoints, multi-process serving |
+| Background Jobs | Celery 5.3 | Async ingestion task queue |
+| Message Broker | Redis 7.2 | Job queue + result backend |
+| Job Monitoring | Flower | Real-time Celery task dashboard |
+| Embeddings | sentence-transformers (all-MiniLM-L6-v2) | Local, free, 384-dim vectors |
+| LLM | Ollama (llama3.2:1b) | Local inference, no API cost |
+| Vector DB | Chroma / Pinecone / MongoDB Atlas | Switchable backends |
+| LLM Framework | LangChain | Vector store abstraction layer |
+| Metrics | Prometheus + Grafana | System + business metrics |
+| Data Versioning | DVC | Reproducible data pipelines |
+| Containerization | Docker + Docker Compose | Full stack orchestration |
+| Config | pydantic-settings + .env | Type-safe environment config |
 
-```
+
+
+## Project Structure
+ ``` bash
 ---
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| API | FastAPI + Uvicorn |
-| Background Jobs | Celery + Redis |
-| Job Monitoring | Flower |
-| Embeddings | sentence-transformers (all-MiniLM-L6-v2) |
-| LLM | Ollama (llama3.2:1b — local, free) |
-| Vector DB | Chroma / Pinecone / MongoDB Atlas (switchable) |
-| LLM Framework | LangChain |
-| Data Versioning | DVC |
-| Containerization | Docker + docker-compose |
-| Config | pydantic-settings + .env |
-
+rag-system/
+├── api/
+│   ├── main.py              # FastAPI app, all endpoints, Prometheus metrics
+│   ├── middleware.py        # RequestID, Timing, ProcessTime middleware
+│   └── schemas.py           # Pydantic request/response models
+│
+├── src/
+│   ├── config.py            # Centralized settings via pydantic-settings
+│   ├── pipeline.py          # ingest() + ask() — core entry points
+│   │
+│   ├── ingestion/
+│   │   ├── loader.py        # PDF / DOCX / TXT document loader
+│   │   └── chunker.py       # Recursive / Semantic / Sentence-window chunking
+│   │
+│   ├── embeddings/
+│   │   └── embedder.py      # HuggingFace embeddings (LangChain interface)
+│   │
+│   ├── vectorstore/
+│   │   └── store.py         # Multi-backend factory (Chroma/Pinecone/MongoDB)
+│   │
+│   ├── retrieval/
+│   │   └── retriever.py     # Top-k retrieval wrapper
+│   │
+│   ├── generation/
+│   │   └── generator.py     # Ollama LLM generation
+│   │
+│   ├── worker/
+│   │   ├── celery_app.py    # Celery app config (broker, backend, serializer)
+│   │   └── tasks.py         # ingest_documents_task (async background job)
+│   │
+│   └── monitoring/
+│       └── metrics.py       # Prometheus counters, histograms, gauges
+│
+├── nginx/
+│   ├── Dockerfile           # Nginx image
+│   └── nginx.conf           # Rate limiting, load balancing, routing
+│
+├── prometheus/
+│   ├── prometheus.yml       # Scrape config (API, Redis, Nginx, Celery)
+│   └── alerts.yml           # Alert rules (latency, errors, downtime)
+│
+├── grafana/
+│   └── provisioning/
+│       ├── datasources/     # Auto-provisioned Prometheus datasource
+│       └── dashboards/      # Auto-provisioned dashboard config
+│
+├── scripts/
+│   ├── ingest.py            # DVC-tracked ingestion CLI (synchronous)
+│   ├── evaluate.py          # DVC-tracked retrieval evaluation
+│   ├── scale.sh             # Scale API + workers up/down
+│   ├── healthcheck.sh       # Full system health check across all services
+│   └── start_local.sh       # Start full local stack in one command
+│
+├── data/
+│   ├── raw/                 # Source documents (DVC tracked)
+│   ├── processed/           # DVC stage outputs (metrics, summaries)
+│   └── vectorstore/         # Chroma persistence (Docker volume)
+│
+├── params.yaml              # DVC experiment parameters
+├── dvc.yaml                 # DVC pipeline (ingest + evaluate stages)
+├── Dockerfile               # Single image for API, worker, flower
+├── docker-compose.yml       # Full production stack (10 services)
+├── requirements.txt         # Pinned Python dependencies
+├── CHANGELOG.md             # Version history
+└── .env.example             # Environment variable template
+```
 ---
 
 ## Quickstart (Local)
 
-```bash
 # 1. Clone and create virtual environment
+```bash
 git clone <your-repo-url>
 cd rag-system
 python -m venv .venv && source .venv/bin/activate
-
-# 2. Install dependencies
-pip install -r requirements.txt
-
-# 3. Configure environment
-cp .env.example .env
-# Edit .env — add Pinecone key and MongoDB URI if using those backends
-
-# 4. Start Redis (separate terminal)
-docker run -d -p 6379:6379 redis:7.2-alpine
-
-# 5. Start Ollama (separate terminal)
-ollama serve
-ollama pull llama3.2:1b
-
-# 6. Start Celery worker (separate terminal)
-celery -A src.worker.celery_app worker --loglevel=info --concurrency=2
-
-# 7. Drop documents into data/raw/
-cp your_docs/*.pdf data/raw/
-
-# 8. Run DVC pipeline (ingest + evaluate)
-dvc repro
-
-# 9. Start the API
-uvicorn api.main:app --reload --port 8000
 ```
 
-Open **http://localhost:8000/docs** for Swagger UI.
-Open **http://localhost:5555** for Flower job monitoring (start with `celery -A src.worker.celery_app flower`).
+# 2. Install dependencies
+```
+pip install -r requirements.txt
+```
+
+# 3. Configure environment
+```
+cp .env.example .env
+# Edit .env — fill in Pinecone key and MongoDB URI if using those backends
+```
+
+# 4. Add documents
+```
+cp your_docs/*.pdf data/raw/
+```
+
+# 5. Start everything in one command
+```
+chmod +x scripts/start_local.sh
+./scripts/start_local.sh
+```
+
+This starts Redis (Docker), Ollama, Celery worker, Flower, and FastAPI together.
+
+| URL | Service |
+|---|---|
+| http://localhost:8000/docs | Swagger UI |
+| http://localhost:5555 | Flower (Celery monitoring) |
+
 
 ---
 
-## Quickstart (Docker)
+## Quickstart (Docker — Full Production Stack)
 
 ```bash
 # 1. Configure environment
 cp .env.example .env
-# Edit .env — add Pinecone key and MongoDB URI
+# Edit .env
 
-# 2. Drop documents into data/raw/
+# 2. Add documents
 cp your_docs/*.pdf data/raw/
 
-# 3. Start all services
-docker compose up --build
+# 3. Start all 10 services
+docker compose up --build -d
 
-# 4. Submit an ingestion job
-curl -X POST http://localhost:8000/ingest \
+# 4. Verify everything is healthy
+bash scripts/healthcheck.sh
+
+# 5. Ingest documents (returns job_id immediately)
+curl -X POST http://localhost/ingest \
   -H "Content-Type: application/json" \
   -d '{"provider": "chroma", "strategy": "recursive", "reset": true}'
 
-# 5. Poll job status (replace <job_id>)
-curl http://localhost:8000/jobs/<job_id>
+# 6. Poll job status
+curl http://localhost/jobs/<job_id>
 
-# 6. Ask a question
-curl -X POST http://localhost:8000/ask \
+# 7. Ask a question
+curl -X POST http://localhost/ask \
   -H "Content-Type: application/json" \
   -d '{"question": "What is this document about?", "provider": "chroma"}'
 ```
 
-Services started by docker compose:
+---
 
-| Service | URL | Description |
-|---|---|---|
-| rag-api | http://localhost:8000 | FastAPI application |
-| rag-worker | — | Celery background worker |
-| rag-flower | http://localhost:5555 | Celery job monitoring UI |
-| rag-redis | localhost:6379 | Redis broker + result backend |
-| rag-ollama | localhost:11434 | Local LLM server |
+## Scaling
+
+```bash
+# Scale to 3 API instances + 3 Celery workers
+./scripts/scale.sh up
+
+# Scale back to 1 of each
+./scripts/scale.sh down
+
+# Check current counts
+./scripts/scale.sh status
+```
+
+Nginx automatically load balances across all API replicas using
+least-connections strategy. No config change needed.
 
 ---
 
@@ -177,40 +220,49 @@ Services started by docker compose:
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/health` | System status + chunk counts per backend |
-| POST | `/ingest` | Queue ingestion as background job → returns `job_id` |
-| GET | `/jobs/{job_id}` | Poll background job status |
+| POST | `/ingest` | Queue ingestion job → returns `job_id` (HTTP 202) |
+| GET | `/jobs/{job_id}` | Poll job: queued → running → success / failed |
 | DELETE | `/jobs/{job_id}/cancel` | Cancel a queued or running job |
-| POST | `/ask` | Ask a question, get a grounded answer |
+| POST | `/ask` | Retrieve context + generate grounded answer |
 | GET | `/providers` | List vector DB backends + connection status |
 | GET | `/strategies` | List chunking strategies + descriptions |
-| GET | `/docs` | Interactive Swagger UI |
+| GET | `/metrics` | Prometheus metrics endpoint |
+| GET | `/docs` | Swagger UI |
+| GET | `/redoc` | ReDoc UI |
 
 ### POST /ingest
-Returns immediately with a `job_id`. Ingestion runs in the background.
+Returns immediately with `job_id`. Ingestion runs in background via Celery.
 
 ```json
+// Request
 {
   "provider": "chroma",
   "strategy": "recursive",
   "reset": true
 }
-```
 
-Response (HTTP 202):
-```json
+// Response (HTTP 202)
 {
-  "job_id": "a3f8c2d1-...",
+  "job_id": "a3f8c2d1-4b5e-...",
   "status": "queued",
   "provider": "chroma",
   "strategy": "recursive",
-  "message": "Ingestion job queued. Poll /jobs/a3f8c2d1-... for status."
+  "message": "Ingestion queued. Poll /jobs/a3f8c2d1-... for status."
 }
 ```
 
 ### GET /jobs/{job_id}
-Poll this until `status` is `success` or `failed`.
+Poll until `status` is `success` or `failed`.
 
 ```json
+// While running
+{
+  "job_id": "a3f8c2d1-...",
+  "status": "running",
+  "progress": { "step": "loading documents", "provider": "chroma" }
+}
+
+// On success
 {
   "job_id": "a3f8c2d1-...",
   "status": "success",
@@ -219,21 +271,28 @@ Poll this until `status` is `success` or `failed`.
     "chunks_created": 96,
     "chunks_added": 96,
     "total_chunks_in_store": 96
-  },
-  "error": null,
-  "progress": null
+  }
 }
 ```
 
-Possible status values: `queued` → `running` → `success` / `failed`
-
 ### POST /ask
-
 ```json
+// Request
 {
-  "question": "What is this document about?",
+  "question": "What are the main topics in this document?",
   "provider": "chroma",
   "top_k": 4
+}
+
+// Response
+{
+  "question": "What are the main topics in this document?",
+  "answer": "The document covers...",
+  "provider": "chroma",
+  "sources": [
+    { "doc_id": "report.pdf", "source": "data/raw/report.pdf",
+      "score": 0.87, "strategy": "recursive" }
+  ]
 }
 ```
 
@@ -241,120 +300,142 @@ Possible status values: `queued` → `running` → `success` / `failed`
 
 ## Chunking Strategies
 
-| Strategy | How it works | Best for |
-|---|---|---|
-| `recursive` | Splits by paragraph → sentence → word boundary | General purpose, fast |
-| `semantic` | Splits at embedding similarity boundaries | Long docs with topic shifts |
-| `sentence_window` | One sentence per chunk + surrounding context in metadata | Precise Q&A |
+| Strategy | How it works | Best for | Speed |
+|---|---|---|---|
+| `recursive` | Splits by paragraph → sentence → word boundary | General purpose | Fast |
+| `semantic` | Splits at embedding similarity boundaries | Long docs with topic shifts | Slow |
+| `sentence_window` | One sentence per chunk + surrounding context in metadata | Precise Q&A | Medium |
+
+Switch strategy per ingestion request — no restart needed:
+```json
+{ "provider": "chroma", "strategy": "sentence_window", "reset": true }
+```
 
 ---
 
 ## Vector DB Backends
 
-| Backend | Type | Setup needed |
-|---|---|---|
-| `chroma` | Local file-persisted | None — works out of the box |
-| `pinecone` | Managed cloud | API key + index (dim=384, cosine) |
-| `mongodb` | MongoDB Atlas Vector Search | URI + Atlas vector search index |
+| Backend | Type | Best for | Setup |
+|---|---|---|---|
+| `chroma` | Local file-persisted | Dev, testing, offline | None |
+| `pinecone` | Managed serverless cloud | Production, demos | API key + index (dim=384, cosine) |
+| `mongodb` | MongoDB Atlas Vector Search | Existing Mongo users | URI + Atlas vector search index |
+
+Switch backend per request — the same API, same embeddings, different store:
+```json
+{ "provider": "pinecone", "strategy": "recursive" }
+```
 
 ---
 
 ## DVC Pipeline
 
+DVC handles reproducible, versioned data pipelines separately from the
+async API ingestion. This is intentional — DVC runs synchronously for
+experiment tracking, Celery runs asynchronously for API non-blocking responses.
+
 ```bash
-dvc repro           # run full pipeline (ingest → evaluate)
-dvc metrics show    # view ingestion + retrieval quality metrics
-dvc params diff     # see what params changed vs last run
-dvc dag             # visualize the pipeline graph
+dvc repro           # run full pipeline: ingest → evaluate
+dvc metrics show    # compare ingestion + retrieval metrics across runs
+dvc params diff     # see what changed vs last run
+dvc dag             # visualize pipeline dependency graph
 ```
 
-Pipeline stages defined in `dvc.yaml`:
+Pipeline stages:
 
-| Stage | Script | Reruns when |
-|---|---|---|
-| `ingest` | `scripts/ingest.py` | `data/raw` or ingestion code changes |
-| `evaluate` | `scripts/evaluate.py` | Ingest output or retrieval params change |
+| Stage | Reruns when |
+|---|---|
+| `ingest` | `data/raw` changes, ingestion code changes, params change |
+| `evaluate` | Ingest output changes, retrieval params change |
 
-Metrics tracked per run:
+Tracked metrics per run:
 
 | Metric | Description |
 |---|---|
-| `documents_loaded` | Number of source documents ingested |
+| `documents_loaded` | Source documents ingested |
 | `chunks_created` | Total chunks after splitting |
-| `avg_top1_score` | Average relevance score of best chunk per query |
-| `avg_top_k_score` | Average relevance score across all retrieved chunks |
+| `chunks_added` | Chunks successfully stored |
+| `avg_top1_score` | Average best-chunk relevance score |
+| `avg_top_k_score` | Average relevance across all retrieved chunks |
+| `queries_with_results` | Queries returning at least one chunk |
 
 ---
 
-## Project Structure
-```
-rag-system/
-├── api/
-│   ├── main.py          # FastAPI app + endpoints
-│   └── schemas.py       # Pydantic request/response models
-├── src/
-│   ├── config.py        # Centralized settings (pydantic-settings)
-│   ├── ingestion/
-│   │   ├── loader.py    # PDF/DOCX/TXT document loader
-│   │   └── chunker.py   # Recursive/Semantic/Sentence-window chunking
-│   ├── embeddings/
-│   │   └── embedder.py  # HuggingFace embeddings (LangChain interface)
-│   ├── vectorstore/
-│   │   └── store.py     # Multi-backend factory (Chroma/Pinecone/MongoDB)
-│   ├── retrieval/
-│   │   └── retriever.py # Top-k retrieval wrapper
-│   ├── generation/
-│   │   └── generator.py # Ollama LLM generation
-|   ├── worker/
-│   │   ├── celery_app.py    # Celery app + configuration
-│   │   └── tasks.py         # ingest_documents_task (background job)
-│   └── pipeline.py      # ingest() + ask() — main entry points
-├── workers/
-│   ├── tasks.py        
-│   └── celery_app.py  
-├── scripts/
-│   ├── ingest.py        # DVC-tracked ingestion script
-│   └── evaluate.py      # DVC-tracked retrieval evaluation
-├── data/
-│   ├── raw/             # Source documents (DVC tracked)
-│   ├── processed/       # DVC outputs (metrics, summaries)
-│   └── vectorstore/     # Chroma persistence (volume mounted)
-├── params.yaml          # DVC experiment parameters
-├── dvc.yaml             # DVC pipeline definition
-├── Dockerfile
-├── docker-compose.yml
-├── requirements.txt
-└── CHANGELOG.md
-```
----
+## Monitoring
 
-## Versions
-
-| Version | Branch | Description |
+| Service | URL | Credentials |
 |---|---|---|
-| v1.0.0 | `main` (tagged) | Basic RAG — Chroma + Ollama + FastAPI + DVC |
-| v2.0.0 | `main` (current) | LangChain + Pinecone + MongoDB + advanced chunking |
+| Grafana | http://localhost:3000 | admin / ragadmin |
+| Prometheus | http://localhost:9090 | — |
+| Flower | http://localhost:5555 | — |
+| API metrics | http://localhost/metrics | — |
 
----
+### Prometheus metrics (custom)
+
+| Metric | Type | Description |
+|---|---|---|
+| `rag_ask_requests_total` | Counter | Total /ask requests by provider |
+| `rag_ask_latency_seconds` | Histogram | End-to-end /ask latency |
+| `rag_retrieval_top1_score` | Histogram | Top-1 relevance score distribution |
+| `rag_empty_retrievals_total` | Counter | Queries returning zero chunks |
+| `rag_ingest_jobs_submitted_total` | Counter | Jobs queued by provider + strategy |
+| `rag_ingest_jobs_completed_total` | Counter | Jobs completed by status |
+| `rag_ingest_chunks_created_total` | Counter | Total chunks ingested |
+| `rag_vector_store_chunks` | Gauge | Current chunk count per backend |
+| `rag_llm_generation_latency_seconds` | Histogram | Ollama response time |
+| `rag_llm_errors_total` | Counter | LLM connection/timeout errors |
+
+### Active alerts
+
+| Alert | Condition | Severity |
+|---|---|---|
+| `APIHighLatency` | p95 /ask latency > 30s for 2min | Warning |
+| `HighEmptyRetrievals` | >50% queries return no chunks | Warning |
+| `LLMErrors` | LLM error rate > 0.1/s | Critical |
+| `APIDown` | API unreachable for 30s | Critical |
+| `WorkerDown` | Celery worker unreachable for 1min | Critical |
+| `RedisDown` | Redis unreachable for 30s | Critical |
 
 ---
 
 ## Environment Variables
 
-| Variable | Required | Description |
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `VECTOR_DB_PROVIDER` | No | `chroma` | Default backend |
+| `CHUNKING_STRATEGY` | No | `recursive` | Default chunking strategy |
+| `EMBEDDING_MODEL` | No | `all-MiniLM-L6-v2` | HuggingFace model name |
+| `LLM_MODEL` | No | `llama3.2:1b` | Ollama model name |
+| `OLLAMA_BASE_URL` | No | `http://localhost:11434` | Ollama server URL |
+| `PINECONE_API_KEY` | Pinecone only | — | From https://app.pinecone.io |
+| `PINECONE_INDEX_NAME` | Pinecone only | `rag-system-index` | Must exist, dim=384, cosine |
+| `MONGODB_ATLAS_URI` | MongoDB only | — | `mongodb+srv://...` |
+| `MONGODB_DB_NAME` | No | `rag_system` | Atlas database name |
+| `MONGODB_COLLECTION_NAME` | No | `document_chunks` | Atlas collection name |
+| `MONGODB_VECTOR_INDEX_NAME` | No | `vector_index` | Atlas vector search index name |
+| `REDIS_URL` | No | `redis://localhost:6379/0` | Redis connection URL |
+| `CELERY_BROKER_URL` | No | `redis://localhost:6379/0` | Celery broker |
+| `CELERY_RESULT_BACKEND` | No | `redis://localhost:6379/0` | Celery result store |
+| `CHUNK_SIZE` | No | `500` | Words per chunk |
+| `CHUNK_OVERLAP` | No | `50` | Overlap between chunks |
+| `TOP_K` | No | `4` | Chunks retrieved per query |
+
+---
+
+## Services (Docker Compose)
+
+| Service | Port | Description |
 |---|---|---|
-| `VECTOR_DB_PROVIDER` | No | Default backend: `chroma` / `pinecone` / `mongodb` |
-| `CHUNKING_STRATEGY` | No | Default strategy: `recursive` / `semantic` / `sentence_window` |
-| `PINECONE_API_KEY` | Pinecone only | From https://app.pinecone.io |
-| `PINECONE_INDEX_NAME` | Pinecone only | Must exist with dim=384, metric=cosine |
-| `MONGODB_ATLAS_URI` | MongoDB only | `mongodb+srv://...` connection string |
-| `OLLAMA_BASE_URL` | No | Default: `http://localhost:11434` |
-| `EMBEDDING_MODEL` | No | Default: `all-MiniLM-L6-v2` |
-| `LLM_MODEL` | No | Default: `llama3.2:1b` |
-| `TOP_K` | No | Default: `4` |
-| `REDIS_URL` | No | Default: `redis://localhost:6379/0` |
-| `CELERY_BROKER_URL` | No | Default: `redis://localhost:6379/0` |
-| `CELERY_RESULT_BACKEND` | No | Default: `redis://localhost:6379/0` |
+| `nginx` | 80 | Load balancer — main entry point |
+| `rag-api` | 8000 (internal) | FastAPI + Gunicorn (scale with --scale) |
+| `rag-worker` | — | Celery worker (scale with --scale) |
+| `flower` | 5555 | Celery job monitoring UI |
+| `redis` | 6379 | Message broker + result backend |
+| `redis-exporter` | 9121 | Redis → Prometheus metrics |
+| `ollama` | 11434 | Local LLM server |
+| `prometheus` | 9090 | Metrics collection + alerting |
+| `grafana` | 3000 | Metrics dashboards |
+| `nginx-exporter` | 9113 | Nginx → Prometheus metrics |
 
 ---
 
@@ -364,41 +445,8 @@ rag-system/
 |---|---|---|
 | v1.0.0 | `v1.0.0` | Basic RAG — Chroma + Ollama + FastAPI + DVC |
 | v2.0.0 | `v2.0.0` | LangChain + Pinecone + MongoDB + advanced chunking |
-| v2.1.0 | `v2.1.0` | Celery + Redis background jobs + Flower monitoring |
+| v2.1.0 | `v2.1.0` | Celery + Redis background jobs + Flower |
+| v2.2.0 | `v2.2.0` | Nginx LB + Prometheus + Grafana + Gunicorn + auto-scaling |
 
-Step 5 — Final commit and tags
-bashgit add README.md CHANGELOG.md
-git commit -m "docs: add README, CHANGELOG for v2.0.0 release"
-
-# Retag v2.0.0 on this final commit
-git tag -d v2.0.0
-git tag -a v2.0.0 -m "v2.0.0 - Production RAG with multi-DB, LangChain, DVC pipeline"
-
-Step 6 — Push to GitHub (if you have a remote)
-bashgit remote add origin https://github.com/<your-username>/rag-system.git
-git push -u origin main
-git push origin release/v2.0.0
-git push origin --tags
-
-Final verification checklist
-bash# Confirm both version tags exist
-git tag -l
-# Expected: v1.0.0  v2.0.0
-
-# Confirm branch structure
-git branch -a
-# Expected: main, v2-langchain-multidb, release/v2.0.0
-
-# Confirm DVC pipeline is clean
-dvc status
-# Expected: Data and pipelines are up to date
-
-# Confirm full pipeline runs
-dvc repro
-
-# Confirm metrics
-dvc metrics show
-
-# Confirm API starts
-uvicorn api.main:app --reload --port 8000
+---
 
