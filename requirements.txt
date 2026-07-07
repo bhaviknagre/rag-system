@@ -1,10 +1,15 @@
 # ── API ──────────────────────────────────────
 fastapi==0.115.6
 uvicorn[standard]==0.32.1
+gunicorn==23.0.0
 pydantic==2.9.2
 pydantic-settings==2.6.1
 python-dotenv==1.0.1
 requests==2.32.3
+
+# ── Monitoring ───────────────────────────────
+prometheus-fastapi-instrumentator==7.0.0
+prometheus-client==0.21.1
 
 # ── LangChain ────────────────────────────────
 langchain==0.3.13
@@ -31,14 +36,15 @@ pypdf==5.1.0
 python-docx==1.1.2
 unstructured==0.16.11
 
+# ── Background jobs ──────────────────────────
+celery==5.3.6
+redis==5.0.1
+flower==2.0.1
+
 # ── Data versioning ──────────────────────────
 dvc==3.50.1
 pathspec==0.11.2
 
 # ── Utilities ────────────────────────────────
 tqdm==4.67.1
-
-# ── Background jobs ───────────────────────────
-celery==5.3.6
-redis==5.0.1
-flower==2.0.1  
+pyyaml==6.0.2

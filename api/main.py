@@ -1,7 +1,17 @@
+import time
 import logging
+import json
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 
+from api.middleware import (
+    RequestIDMiddleware,
+    TimingMiddleware,
+    ProcessTimeHeaderMiddleware
+)
 from api.schemas import (
     AskRequest, AskResponse, SourceItem,
     IngestRequest, JobSubmittedResponse, JobStatusResponse,
@@ -12,19 +22,50 @@ from src.vectorstore.store import count_chunks
 from src.config import settings
 from src.worker.celery_app import celery_app
 from src.worker.tasks import ingest_documents_task
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-app = FastAPI(
-    title="RAG System API — v2",
-    description=(
-        "Production-grade RAG pipeline with background ingestion via Celery + Redis. "
-        "POST /ingest returns a job_id immediately. Poll GET /jobs/{job_id} for status."
-    ),
-    version="2.1.0"
+from src.monitoring.metrics import (
+    record_ask,
+    record_ingest_submitted,
+    update_vector_store_gauges,
+    init_system_info,
+    record_ingest_completed
 )
 
+# ── Structured JSON logging ───────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format='{"time":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","msg":"%(message)s"}'
+)
+logger = logging.getLogger(__name__)
+
+
+# ── Lifespan ──────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info(json.dumps({"event": "startup", "version": "2.1.0"}))
+    init_system_info(settings)
+    update_vector_store_gauges()
+    yield
+    logger.info(json.dumps({"event": "shutdown"}))
+
+
+# ── App ───────────────────────────────────────
+app = FastAPI(
+    title="RAG System API",
+    description=(
+        "Production-grade RAG pipeline. "
+        "POST /ingest queues background job via Celery + Redis. "
+        "POST /ask retrieves context and generates grounded answer via local LLM."
+    ),
+    version="2.1.0",
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# ── Middleware (order matters — outermost runs first) ──
+app.add_middleware(ProcessTimeHeaderMiddleware)
+app.add_middleware(TimingMiddleware)
+app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -32,17 +73,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Prometheus auto-instrumentation ──────────
+# Instruments all routes automatically, exposes /metrics
+Instrumentator(
+    should_group_status_codes=True,
+    should_ignore_untemplated=True,
+    excluded_handlers=["/metrics", "/health", "/nginx-health"]
+).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
-# ── Health ───────────────────────────────────
+
+# ── Health ────────────────────────────────────
 
 @app.get("/health", response_model=HealthResponse)
 def health_check():
     chunk_counts = {}
     for provider in ["chroma", "pinecone", "mongodb"]:
         try:
-            chunk_counts[provider] = count_chunks(provider)
+            count = count_chunks(provider)
+            chunk_counts[provider] = count
         except Exception as e:
             chunk_counts[provider] = f"error: {str(e)[:60]}"
+
+    update_vector_store_gauges()
 
     return HealthResponse(
         status="ok",
@@ -54,7 +106,7 @@ def health_check():
     )
 
 
-# ── Ingest (background job) ──────────────────
+# ── Ingest ────────────────────────────────────
 
 @app.post("/ingest", response_model=JobSubmittedResponse, status_code=202)
 def ingest_documents(request: IngestRequest):
@@ -70,48 +122,41 @@ def ingest_documents(request: IngestRequest):
                 "raw_dir": "data/raw"
             }
         )
-
-        logger.info(f"Ingestion job queued | job_id={task.id} | provider={provider}")
-
+        record_ingest_submitted(provider=provider, strategy=strategy)
+        logger.info(json.dumps({
+            "event": "ingest_queued",
+            "job_id": task.id,
+            "provider": provider,
+            "strategy": strategy
+        }))
         return JobSubmittedResponse(
             job_id=task.id,
             status="queued",
             provider=provider,
             strategy=strategy,
-            message=f"Ingestion job queued. Poll /jobs/{task.id} for status."
+            message=f"Ingestion queued. Poll /jobs/{task.id} for status."
         )
-
     except Exception as e:
-        logger.error(f"Failed to queue ingestion job: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to queue ingestion job: {e}"
-        )
+        logger.error(json.dumps({"event": "ingest_queue_failed", "error": str(e)}))
+        raise HTTPException(status_code=500, detail=f"Failed to queue job: {e}")
 
 
-# ── Job status ───────────────────────────────
+# ── Job status ────────────────────────────────
 
 @app.get("/jobs/{job_id}", response_model=JobStatusResponse)
 def get_job_status(job_id: str):
     try:
         task_result = celery_app.AsyncResult(job_id)
-        celery_state = task_result.state
-        if celery_state == "PENDING":
-            return JobStatusResponse(
-                job_id=job_id,
-                status="queued",
-                result=None,
-                error=None,
-                progress=None
-            )
+        state = task_result.state
 
-        elif celery_state == "STARTED" or celery_state == "PROGRESS":
+        if state == "PENDING":
+            return JobStatusResponse(job_id=job_id, status="queued")
+
+        elif state in ("STARTED", "PROGRESS"):
             meta = task_result.info or {}
             return JobStatusResponse(
                 job_id=job_id,
                 status="running",
-                result=None,
-                error=None,
                 progress={
                     "step": meta.get("step", "processing"),
                     "provider": meta.get("provider", ""),
@@ -119,32 +164,35 @@ def get_job_status(job_id: str):
                 }
             )
 
-        elif celery_state == "SUCCESS":
+        elif state == "SUCCESS":
+            result = task_result.result
+            record_ingest_completed(
+                provider=result.get("provider", "unknown"),
+                strategy=result.get("strategy", "unknown"),
+                status="success",
+                chunks=result.get("chunks_added", 0)
+            )
             return JobStatusResponse(
                 job_id=job_id,
                 status="success",
-                result=task_result.result,
-                error=None,
-                progress=None
+                result=result
             )
 
-        elif celery_state == "FAILURE":
-            error_info = task_result.info
-            error_msg = str(error_info) if error_info else "Unknown error"
+        elif state == "FAILURE":
+            error_msg = str(task_result.info) if task_result.info else "Unknown error"
+            record_ingest_completed(
+                provider="unknown", strategy="unknown", status="failed"
+            )
             return JobStatusResponse(
                 job_id=job_id,
                 status="failed",
-                result=None,
-                error=error_msg,
-                progress=None
+                error=error_msg
             )
 
-        elif celery_state == "RETRY":
+        elif state == "RETRY":
             return JobStatusResponse(
                 job_id=job_id,
                 status="running",
-                result=None,
-                error=None,
                 progress={"step": "retrying after error"}
             )
 
@@ -152,44 +200,51 @@ def get_job_status(job_id: str):
             return JobStatusResponse(
                 job_id=job_id,
                 status="unknown",
-                result=None,
-                error=f"Unexpected Celery state: {celery_state}",
-                progress=None
+                error=f"Unexpected state: {state}"
             )
 
     except Exception as e:
-        logger.error(f"Failed to fetch job status for {job_id}: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to fetch job status: {e}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to fetch job status: {e}")
 
 
 @app.delete("/jobs/{job_id}/cancel")
 def cancel_job(job_id: str):
-    """
-    Attempts to cancel a queued or running job.
-    Queued jobs are cancelled cleanly.
-    Running jobs receive a termination signal — may not stop instantly.
-    """
     try:
         celery_app.control.revoke(job_id, terminate=True, signal="SIGTERM")
         return {
             "job_id": job_id,
             "status": "cancellation_requested",
-            "message": "Cancellation signal sent. Job may take a moment to stop."
+            "message": "Cancellation signal sent."
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to cancel job: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to cancel: {e}")
+
+
+# ── Ask ───────────────────────────────────────
 
 @app.post("/ask", response_model=AskResponse)
 def ask_question(request: AskRequest):
+    provider = request.provider or settings.vector_db_provider
+    start = time.time()
+
     try:
         result = ask(
             question=request.question,
-            provider=request.provider,
+            provider=provider,
             top_k=request.top_k
         )
+        latency = time.time() - start
+        record_ask(
+            provider=provider,
+            latency=latency,
+            sources=result["sources"]
+        )
+        logger.info(json.dumps({
+            "event": "ask_completed",
+            "provider": provider,
+            "latency_ms": round(latency * 1000, 2),
+            "sources_count": len(result["sources"])
+        }))
         return AskResponse(
             question=result["question"],
             answer=result["answer"],
@@ -199,8 +254,11 @@ def ask_question(request: AskRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Ask failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to generate answer: {e}")
+        logger.error(json.dumps({"event": "ask_failed", "error": str(e)}))
+        raise HTTPException(status_code=500, detail=f"Failed: {e}")
+
+
+# ── Info ──────────────────────────────────────
 
 @app.get("/providers")
 def list_providers():
@@ -221,7 +279,7 @@ def list_strategies():
         "strategies": {
             "recursive": "Structure-aware splitting. Fast, general purpose.",
             "semantic": "Embedding-based splitting at meaning boundaries. Slowest, most accurate.",
-            "sentence_window": "One sentence per chunk + surrounding context in metadata. Best for Q&A."
+            "sentence_window": "One sentence per chunk + surrounding context. Best for Q&A."
         }
     }
 
@@ -229,19 +287,8 @@ def list_strategies():
 @app.get("/")
 def root():
     return {
-        "message": "RAG System API v2.1.0 is running",
+        "message": "RAG System API v2.1.0",
         "docs": "/docs",
+        "metrics": "/metrics",
         "endpoints": ["/health", "/ingest", "/jobs/{job_id}", "/ask", "/providers", "/strategies"]
     }
-
-
-"""
-Endpoints:
-    GET  /health              -> system status + chunk counts
-    POST /ingest              -> queue ingestion as background job, returns job_id
-    GET  /jobs/{job_id}       -> poll ingestion job status
-    GET  /jobs/{job_id}/cancel -> cancel a queued/running job
-    POST /ask                 -> ask a question (synchronous)
-    GET  /providers           -> list vector DB backends
-    GET  /strategies          -> list chunking strategies
-"""

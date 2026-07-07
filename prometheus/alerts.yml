@@ -1,0 +1,53 @@
+groups:
+  - name: rag_alerts
+    rules:
+
+      - alert: APIHighLatency
+        expr: histogram_quantile(0.95, rate(rag_ask_latency_seconds_bucket[5m])) > 30
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RAG /ask p95 latency > 30s"
+          description: "95th percentile ask latency is {{ $value }}s"
+
+      - alert: HighEmptyRetrievals
+        expr: rate(rag_empty_retrievals_total[5m]) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rate of empty retrievals"
+          description: "More than 50% of queries are returning no chunks"
+
+      - alert: LLMErrors
+        expr: rate(rag_llm_errors_total[5m]) > 0.1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LLM generation errors spiking"
+
+      - alert: APIDown
+        expr: up{job="rag_api"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "RAG API is down"
+
+      - alert: WorkerDown
+        expr: up{job="celery_worker"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Celery worker is unreachable"
+
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down — background jobs will fail"
