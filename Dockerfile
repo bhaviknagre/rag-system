@@ -16,6 +16,7 @@ COPY src/ ./src/
 COPY api/ ./api/
 COPY scripts/ ./scripts/
 COPY params.yaml .
+COPY static/ ./static/   
 
 RUN mkdir -p data/raw data/processed data/vectorstore
 

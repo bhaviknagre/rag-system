@@ -2,8 +2,13 @@ import time
 import logging
 import json
 from contextlib import asynccontextmanager
-
-from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import shutil
+import os
+from pathlib import Path
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -292,3 +297,83 @@ def root():
         "metrics": "/metrics",
         "endpoints": ["/health", "/ingest", "/jobs/{job_id}", "/ask", "/providers", "/strategies"]
     }
+
+# ── Upload ────────────────────────────────────
+
+ALLOWED_EXTENSIONS = {".pdf", ".txt", ".docx"}
+MAX_FILE_SIZE = 100 * 1024 * 1024  
+
+
+@app.post("/upload")
+async def upload_document(
+    file: UploadFile = File(...),
+    ingest_immediately: bool = Form(default=True),
+    provider: Optional[str] = Form(default=None),
+    strategy: Optional[str] = Form(default=None),
+):
+    # Validate extension
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type '{suffix}'. Allowed: {ALLOWED_EXTENSIONS}"
+        )
+    
+    save_dir = Path("data/raw")
+    save_dir.mkdir(parents=True, exist_ok=True)
+    save_path = save_dir / file.filename
+
+    try:
+        with open(save_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {e}")
+    finally:
+        await file.close()
+
+    file_size = os.path.getsize(save_path)
+    logger.info(json.dumps({
+        "event": "file_uploaded",
+        "filename": file.filename,
+        "size_bytes": file_size
+    }))
+
+    job_id = None
+    if ingest_immediately:
+        active_provider = provider or settings.vector_db_provider
+        active_strategy = strategy or settings.chunking_strategy
+        task = ingest_documents_task.apply_async(
+            kwargs={
+                "provider": active_provider,
+                "strategy": active_strategy,
+                "reset": False,
+                "raw_dir": "data/raw"
+            }
+        )
+        job_id = task.id
+        record_ingest_submitted(
+            provider=active_provider,
+            strategy=active_strategy
+        )
+
+    response = {
+        "filename": file.filename,
+        "saved_to": str(save_path),
+        "size_bytes": file_size,
+        "message": f"File uploaded successfully."
+    }
+
+    if job_id:
+        response["job_id"] = job_id
+        response["message"] += f" Ingestion queued — poll /jobs/{job_id} for status."
+
+    return response
+
+
+static_dir = Path("static")
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/rag-system", include_in_schema=False)
+def serve_ui():
+    return FileResponse("static/index.html")

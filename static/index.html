@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RAG System</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e1e4e8;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header h1 { font-size: 20px; font-weight: 600; color: #58a6ff; }
+    header span { font-size: 13px; color: #8b949e; }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #3fb950;
+      display: inline-block;
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .card.full-width { grid-column: 1 / -1; }
+
+    .card h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #c9d1d9;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card h2 .icon { font-size: 18px; }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: #8b949e;
+      margin-bottom: 6px;
+      margin-top: 14px;
+    }
+
+    label:first-of-type { margin-top: 0; }
+
+    input[type="text"],
+    input[type="file"],
+    select,
+    textarea {
+      width: 100%;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #e1e4e8;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: #58a6ff;
+    }
+
+    textarea { resize: vertical; min-height: 80px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 16px;
+    }
+
+    .btn-primary { background: #238636; color: #fff; }
+    .btn-primary:hover { background: #2ea043; }
+    .btn-blue { background: #1f6feb; color: #fff; }
+    .btn-blue:hover { background: #388bfd; }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid #30363d;
+      color: #8b949e;
+    }
+    .btn-secondary:hover { border-color: #58a6ff; color: #58a6ff; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .response-box {
+      margin-top: 16px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 13px;
+      min-height: 60px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #c9d1d9;
+      display: none;
+    }
+
+    .response-box.visible { display: block; }
+
+    .answer-text {
+      font-size: 15px;
+      line-height: 1.7;
+      color: #e1e4e8;
+    }
+
+    .sources-list {
+      margin-top: 16px;
+      border-top: 1px solid #21262d;
+      padding-top: 12px;
+    }
+
+    .source-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: #21262d;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+
+    .source-name { color: #58a6ff; font-weight: 500; }
+    .source-score {
+      background: #238636;
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-queued { background: #b08800; color: #fff; }
+    .badge-running { background: #1f6feb; color: #fff; }
+    .badge-success { background: #238636; color: #fff; }
+    .badge-failed { background: #da3633; color: #fff; }
+
+    .job-tracker {
+      margin-top: 16px;
+      display: none;
+    }
+
+    .job-tracker.visible { display: block; }
+
+    .job-id-display {
+      font-family: monospace;
+      font-size: 11px;
+      color: #8b949e;
+      word-break: break-all;
+      margin-bottom: 10px;
+    }
+
+    .progress-bar {
+      height: 4px;
+      background: #21262d;
+      border-radius: 2px;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #1f6feb, #58a6ff);
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+
+    .health-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .health-item {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .health-item .count {
+      font-size: 24px;
+      font-weight: 700;
+      color: #58a6ff;
+    }
+
+    .health-item .label {
+      font-size: 11px;
+      color: #8b949e;
+      margin-top: 4px;
+    }
+
+    .drop-zone {
+      border: 2px dashed #30363d;
+      border-radius: 8px;
+      padding: 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 8px;
+    }
+
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #58a6ff;
+      background: #1f2937;
+    }
+
+    .drop-zone p { color: #8b949e; font-size: 14px; }
+    .drop-zone .icon { font-size: 32px; margin-bottom: 8px; }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .links-bar {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .ext-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #8b949e;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .ext-link:hover { border-color: #58a6ff; color: #58a6ff; }
+
+    .alert {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-top: 12px;
+      display: none;
+    }
+
+    .alert.visible { display: block; }
+    .alert-error { background: #2d1b1b; border: 1px solid #da3633; color: #ff7b72; }
+    .alert-success { background: #1b2d1b; border: 1px solid #238636; color: #3fb950; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🤖 RAG System</h1>
+  </div>
+  <span><span class="status-dot"></span>v2.2.0 — Production</span>
+  <div class="links-bar" style="margin-top:0; margin-left: auto;">
+    <a href="/docs" target="_blank" class="ext-link">📄 Swagger</a>
+    <a href="http://localhost:5555" target="_blank" class="ext-link">🌸 Flower</a>
+    <a href="http://localhost:9090" target="_blank" class="ext-link">📊 Prometheus</a>
+    <a href="http://localhost:3000" target="_blank" class="ext-link">📈 Grafana</a>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Health Card -->
+  <div class="card full-width" id="health-card">
+    <h2><span class="icon">💚</span> System Health</h2>
+    <div class="health-grid" id="health-grid">
+      <div class="health-item">
+        <div class="count" id="h-chroma">—</div>
+        <div class="label">Chroma Chunks</div>
+      </div>
+      <div class="health-item">
+        <div class="count" id="h-pinecone">—</div>
+        <div class="label">Pinecone Chunks</div>
+      </div>
+      <div class="health-item">
+        <div class="count" id="h-mongodb">—</div>
+        <div class="label">MongoDB Chunks</div>
+      </div>
+    </div>
+    <div style="margin-top:12px; font-size:12px; color:#8b949e;" id="health-meta"></div>
+  </div>
+
+  <!-- Upload Card -->
+  <div class="card">
+    <h2><span class="icon">📤</span> Upload Document</h2>
+
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div class="icon">📁</div>
+      <p>Click or drag & drop a file here</p>
+      <p style="font-size:12px; margin-top:4px;">PDF, DOCX, TXT — max 100MB</p>
+    </div>
+    <input type="file" id="file-input" accept=".pdf,.docx,.txt" style="display:none"/>
+
+    <label>Vector DB Provider</label>
+    <select id="upload-provider">
+      <option value="chroma">Chroma (local)</option>
+      <option value="pinecone">Pinecone</option>
+      <option value="mongodb">MongoDB Atlas</option>
+    </select>
+
+    <label>Chunking Strategy</label>
+    <select id="upload-strategy">
+      <option value="recursive">Recursive — general purpose, fast</option>
+      <option value="semantic">Semantic — topic-aware, slower</option>
+      <option value="sentence_window">Sentence Window — best for Q&A</option>
+    </select>
+
+    <button class="btn btn-primary" onclick="uploadFile()" id="upload-btn">
+      📤 Upload & Ingest
+    </button>
+
+    <div class="alert alert-error" id="upload-error"></div>
+    <div class="alert alert-success" id="upload-success"></div>
+
+    <!-- Job tracker -->
+    <div class="job-tracker" id="upload-job-tracker">
+      <div class="job-id-display" id="upload-job-id"></div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="upload-progress" style="width:30%"></div>
+      </div>
+      <div id="upload-job-status"></div>
+    </div>
+  </div>
+
+  <!-- Ingest Existing Card -->
+  <div class="card">
+    <h2><span class="icon">⚙️</span> Ingest from data/raw/</h2>
+    <p style="font-size:13px; color:#8b949e; margin-bottom:16px;">
+      Trigger ingestion of all documents already in the data/raw/ folder.
+    </p>
+
+    <label>Vector DB Provider</label>
+    <select id="ingest-provider">
+      <option value="chroma">Chroma (local)</option>
+      <option value="pinecone">Pinecone</option>
+      <option value="mongodb">MongoDB Atlas</option>
+    </select>
+
+    <label>Chunking Strategy</label>
+    <select id="ingest-strategy">
+      <option value="recursive">Recursive</option>
+      <option value="semantic">Semantic</option>
+      <option value="sentence_window">Sentence Window</option>
+    </select>
+
+    <div style="display:flex; align-items:center; gap:10px; margin-top:14px;">
+      <input type="checkbox" id="ingest-reset" style="width:auto"/>
+      <label style="margin:0; color:#e1e4e8;">Reset collection before ingesting</label>
+    </div>
+
+    <button class="btn btn-blue" onclick="triggerIngest()" id="ingest-btn">
+      ⚙️ Start Ingestion
+    </button>
+
+    <div class="job-tracker" id="ingest-job-tracker">
+      <div class="job-id-display" id="ingest-job-id"></div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="ingest-progress" style="width:30%"></div>
+      </div>
+      <div id="ingest-job-status"></div>
+    </div>
+
+    <div class="response-box" id="ingest-result"></div>
+  </div>
+
+  <!-- Ask Card -->
+  <div class="card full-width">
+    <h2><span class="icon">💬</span> Ask a Question</h2>
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+      <div>
+        <label>Vector DB Provider</label>
+        <select id="ask-provider">
+          <option value="chroma">Chroma (local)</option>
+          <option value="pinecone">Pinecone</option>
+          <option value="mongodb">MongoDB Atlas</option>
+        </select>
+      </div>
+      <div>
+        <label>Top K chunks</label>
+        <select id="ask-topk">
+          <option value="2">2</option>
+          <option value="4" selected>4</option>
+          <option value="6">6</option>
+          <option value="8">8</option>
+        </select>
+      </div>
+    </div>
+
+    <label>Your Question</label>
+    <textarea
+      id="ask-question"
+      placeholder="What is this document about?"
+      rows="3"
+    ></textarea>
+
+    <button class="btn btn-primary" onclick="askQuestion()" id="ask-btn">
+      💬 Ask
+    </button>
+
+    <div class="alert alert-error" id="ask-error"></div>
+
+    <div class="response-box" id="ask-result">
+      <div class="answer-text" id="answer-text"></div>
+      <div class="sources-list" id="sources-list"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const API = '';   // empty = same origin (goes through Nginx)
+
+  // ── Helpers ───────────────────────────────
+
+  function showAlert(id, message) {
+    const el = document.getElementById(id);
+    el.textContent = message;
+    el.classList.add('visible');
+  }
+
+  function hideAlert(id) {
+    const el = document.getElementById(id);
+    el.textContent = '';
+    el.classList.remove('visible');
+  }
+
+  function setLoading(btnId, loading, label) {
+    const btn = document.getElementById(btnId);
+    btn.disabled = loading;
+    btn.innerHTML = loading
+      ? `<span class="spinner"></span> ${label}`
+      : btn.dataset.original || btn.innerHTML;
+    if (!btn.dataset.original && !loading) {
+      btn.dataset.original = btn.innerHTML;
+    }
+  }
+
+  function badgeHtml(status) {
+    return `<span class="badge badge-${status}">${status}</span>`;
+  }
+
+  // ── Health ────────────────────────────────
+
+  async function loadHealth() {
+    try {
+      const res = await fetch(`${API}/health`);
+      const data = await res.json();
+      const cc = data.chunk_counts || {};
+      document.getElementById('h-chroma').textContent =
+        typeof cc.chroma === 'number' ? cc.chroma : '—';
+      document.getElementById('h-pinecone').textContent =
+        typeof cc.pinecone === 'number' ? cc.pinecone : '—';
+      document.getElementById('h-mongodb').textContent =
+        typeof cc.mongodb === 'number' ? cc.mongodb : '—';
+      document.getElementById('health-meta').textContent =
+        `Model: ${data.embedding_model}  |  LLM: ${data.llm_model}  |  Default provider: ${data.default_provider}`;
+    } catch (e) {
+      document.getElementById('health-meta').textContent = 'Could not reach API';
+    }
+  }
+
+  // ── Job polling ───────────────────────────
+
+  function pollJob(jobId, trackerId, progressId, statusId, onSuccess) {
+    const tracker = document.getElementById(trackerId);
+    const statusEl = document.getElementById(statusId);
+    const progressEl = document.getElementById(progressId);
+    document.getElementById(trackerId.replace('tracker', 'id') || trackerId)
+      .textContent = `Job ID: ${jobId}`;
+    tracker.classList.add('visible');
+
+    let dots = 0;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API}/jobs/${jobId}`);
+        const data = await res.json();
+        dots = (dots + 1) % 4;
+        const dot = '.'.repeat(dots + 1);
+
+        if (data.status === 'queued') {
+          progressEl.style.width = '15%';
+          statusEl.innerHTML = `${badgeHtml('queued')} Waiting for worker${dot}`;
+        } else if (data.status === 'running') {
+          progressEl.style.width = '60%';
+          const step = data.progress?.step || 'processing';
+          statusEl.innerHTML = `${badgeHtml('running')} ${step}${dot}`;
+        } else if (data.status === 'success') {
+          progressEl.style.width = '100%';
+          clearInterval(interval);
+          statusEl.innerHTML = `${badgeHtml('success')} Completed`;
+          if (onSuccess) onSuccess(data.result);
+          loadHealth();
+        } else if (data.status === 'failed') {
+          progressEl.style.width = '100%';
+          progressEl.style.background = '#da3633';
+          clearInterval(interval);
+          statusEl.innerHTML = `${badgeHtml('failed')} ${data.error || 'Unknown error'}`;
+        }
+      } catch (e) {
+        statusEl.textContent = 'Error polling job status';
+        clearInterval(interval);
+      }
+    }, 1500);
+  }
+
+  // ── Upload ────────────────────────────────
+
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  let selectedFile = null;
+
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+  });
+
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) setSelectedFile(file);
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) setSelectedFile(fileInput.files[0]);
+  });
+
+  function setSelectedFile(file) {
+    selectedFile = file;
+    dropZone.innerHTML = `
+      <div class="icon">✅</div>
+      <p style="color:#3fb950; font-weight:600;">${file.name}</p>
+      <p style="font-size:12px;">${(file.size / 1024).toFixed(1)} KB — click to change</p>
+    `;
+  }
+
+  async function uploadFile() {
+    hideAlert('upload-error');
+    hideAlert('upload-success');
+
+    if (!selectedFile) {
+      showAlert('upload-error', 'Please select a file first.');
+      return;
+    }
+
+    const provider = document.getElementById('upload-provider').value;
+    const strategy = document.getElementById('upload-strategy').value;
+
+    setLoading('upload-btn', true, 'Uploading...');
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('ingest_immediately', 'true');
+    formData.append('provider', provider);
+    formData.append('strategy', strategy);
+
+    try {
+      const res = await fetch(`${API}/upload`, { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showAlert('upload-error', data.detail || 'Upload failed');
+        return;
+      }
+
+      showAlert('upload-success',
+        `✅ ${data.filename} uploaded (${(data.size_bytes / 1024).toFixed(1)} KB)`);
+
+      if (data.job_id) {
+        pollJob(
+          data.job_id,
+          'upload-job-tracker',
+          'upload-progress',
+          'upload-job-status',
+          (result) => {
+            showAlert('upload-success',
+              `✅ Ingested: ${result.chunks_added} chunks from ${result.documents_loaded} doc(s)`);
+          }
+        );
+      }
+    } catch (e) {
+      showAlert('upload-error', `Network error: ${e.message}`);
+    } finally {
+      setLoading('upload-btn', false, '📤 Upload & Ingest');
+    }
+  }
+
+  // ── Ingest existing ───────────────────────
+
+  async function triggerIngest() {
+    const provider = document.getElementById('ingest-provider').value;
+    const strategy = document.getElementById('ingest-strategy').value;
+    const reset = document.getElementById('ingest-reset').checked;
+
+    setLoading('ingest-btn', true, 'Queuing...');
+
+    try {
+      const res = await fetch(`${API}/ingest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, strategy, reset })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.detail || 'Ingest failed');
+        return;
+      }
+
+      document.getElementById('ingest-job-id').textContent = `Job ID: ${data.job_id}`;
+
+      pollJob(
+        data.job_id,
+        'ingest-job-tracker',
+        'ingest-progress',
+        'ingest-job-status',
+        (result) => {
+          const box = document.getElementById('ingest-result');
+          box.classList.add('visible');
+          box.textContent = JSON.stringify(result, null, 2);
+        }
+      );
+    } catch (e) {
+      alert(`Network error: ${e.message}`);
+    } finally {
+      setLoading('ingest-btn', false, '⚙️ Start Ingestion');
+    }
+  }
+
+  // ── Ask ───────────────────────────────────
+
+  async function askQuestion() {
+    hideAlert('ask-error');
+    const question = document.getElementById('ask-question').value.trim();
+    if (!question) {
+      showAlert('ask-error', 'Please enter a question.');
+      return;
+    }
+
+    const provider = document.getElementById('ask-provider').value;
+    const top_k = parseInt(document.getElementById('ask-topk').value);
+
+    setLoading('ask-btn', true, 'Thinking...');
+
+    const resultBox = document.getElementById('ask-result');
+    const answerEl = document.getElementById('answer-text');
+    const sourcesEl = document.getElementById('sources-list');
+    resultBox.classList.remove('visible');
+
+    try {
+      const res = await fetch(`${API}/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, provider, top_k })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showAlert('ask-error', data.detail || 'Ask failed');
+        return;
+      }
+
+      answerEl.textContent = data.answer;
+
+      if (data.sources && data.sources.length > 0) {
+        sourcesEl.innerHTML = '<div style="font-size:12px;color:#8b949e;margin-bottom:8px;">Sources used:</div>' +
+          data.sources.map(s => `
+            <div class="source-item">
+              <span class="source-name">${s.doc_id}</span>
+              <span style="color:#8b949e;font-size:11px;">${s.strategy}</span>
+              <span class="source-score">${(s.score * 100).toFixed(0)}%</span>
+            </div>
+          `).join('');
+      } else {
+        sourcesEl.innerHTML = '<div style="font-size:12px;color:#8b949e;">No sources returned.</div>';
+      }
+
+      resultBox.classList.add('visible');
+    } catch (e) {
+      showAlert('ask-error', `Network error: ${e.message}`);
+    } finally {
+      setLoading('ask-btn', false, '💬 Ask');
+    }
+  }
+
+  // Allow Enter key in question box
+  document.getElementById('ask-question').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) askQuestion();
+  });
+
+  // ── Init ──────────────────────────────────
+  loadHealth();
+  setInterval(loadHealth, 30000);   // refresh health every 30s
+</script>
+</body>
+</html>

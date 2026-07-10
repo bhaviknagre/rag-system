@@ -90,3 +90,9 @@ class JobStatusResponse(BaseModel):
         None,
         description="Populated when status=running. Contains current step."
     )
+
+class UploadResponse(BaseModel):
+    filename: str
+    saved_to: str
+    size_bytes: int
+    message: str
