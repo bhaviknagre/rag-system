@@ -61,7 +61,39 @@ rag-system/
 │   ├── main.py              # FastAPI app, all endpoints, Prometheus metrics
 │   ├── middleware.py        # RequestID, Timing, ProcessTime middleware
 │   └── schemas.py           # Pydantic request/response models
-│
+├──k8s/
+│   ├── namespace.yaml
+│   |── configmap
+│   │   ├── configmap.yaml
+│   ├── secrets
+│   │   ├── secrets.yaml
+│   ├── redis
+│   |    ├── deployment.yaml        
+│   │   ├── service.yaml 
+│   ├── ollama
+│   │   ├── statefulset.yaml          
+│   │   ├── service.yaml
+│   ├── api
+│   │   ├── deployment.yaml          
+│   │   ├── service.yaml
+│   │   ├── hpa.yaml
+│   ├── worker
+│   │   ├── deployment.yaml           
+│   │   ├── keda-scaledobject.yaml
+│   ├── flower
+│   │   ├── deployment.yaml          
+│   │   ├── service.yaml
+│   ├── monitoring
+│   │   ├── ervicemonitor.yaml         
+│   │   ├── prometheus-rules.yaml
+│   │   ├── grafana-dashboard-configmap.yaml
+│   ├── ingress/ingress.yaml
+│   │   ├── ingress.yaml          
+│   |── scripts
+│   │   ├── build-images.sh          
+│   │   ├── deploy.sh
+│   │   ├── rollout.sh
+│   │   ├── setup-hosts.sh 
 ├── src/
 │   ├── config.py            # Centralized settings via pydantic-settings
 │   ├── pipeline.py          # ingest() + ask() — core entry points
@@ -439,6 +471,87 @@ Tracked metrics per run:
 
 ---
 
+## Kubernetes Deployment (Minikube)
+
+The full stack runs on Kubernetes with auto-scaling, queue-based worker
+scaling, and path-based ingress routing — all on a local Minikube cluster.
+
+### Prerequisites
+
+```bash
+brew install minikube kubectl helm
+minikube start --driver=docker --cpus=4 --memory=6144 --disk-size=20g
+minikube addons enable ingress
+minikube addons enable metrics-server
+```
+
+### One-command deploy
+
+```bash
+# Build image inside Minikube
+bash k8s/scripts/build-images.sh
+
+# Deploy all phases
+bash k8s/scripts/deploy.sh
+
+# Add rag.local to /etc/hosts
+sudo bash k8s/scripts/setup-hosts.sh
+
+# Start Minikube tunnel (keep running)
+minikube tunnel
+```
+
+### Access URLs
+
+| URL | Service |
+|---|---|
+| http://rag.local | RAG API |
+| http://rag.local/docs | Swagger UI |
+| http://rag.local/flower | Flower — Celery task monitor |
+| http://rag.local/grafana | Grafana — dashboards (admin/ragadmin) |
+| http://rag.local/prometheus | Prometheus — metrics |
+
+### Scaling commands
+
+```bash
+# Scale API manually
+kubectl scale deployment/rag-api --replicas=4 -n rag-system
+
+# Watch KEDA auto-scale workers when jobs submitted
+kubectl get pods -n rag-system -w
+
+# Check HPA status
+kubectl get hpa -n rag-system
+
+# Check KEDA ScaledObject
+kubectl get scaledobject -n rag-system
+
+# Zero-downtime rollout after code change
+bash k8s/scripts/rollout.sh
+```
+
+### K8s resource inventory
+
+| Resource | Kind | Namespace | Purpose |
+|---|---|---|---|
+| `rag-system` | Namespace | — | Isolates all RAG resources |
+| `rag-config` | ConfigMap | rag-system | Non-sensitive env config |
+| `rag-secrets` | Secret | rag-system | API keys + DB URIs |
+| `redis` | Deployment | rag-system | Celery broker + result store |
+| `redis-service` | Service (ClusterIP) | rag-system | Internal Redis DNS |
+| `ollama` | StatefulSet | rag-system | LLM serving (model persisted) |
+| `ollama-service` | Service (Headless) | rag-system | Stable pod DNS |
+| `rag-api` | Deployment | rag-system | FastAPI + Gunicorn |
+| `rag-api-service` | Service (ClusterIP) | rag-system | Internal API routing |
+| `rag-api-hpa` | HPA | rag-system | CPU/memory auto-scaling |
+| `rag-worker` | Deployment | rag-system | Celery workers |
+| `rag-worker-scaledobject` | ScaledObject (KEDA) | rag-system | Queue-depth scaling |
+| `flower` | Deployment | rag-system | Celery monitoring UI |
+| `rag-ingress` | Ingress | rag-system | Path-based routing |
+| `rag-api-monitor` | ServiceMonitor | rag-system | Prometheus scrape config |
+| `rag-alerts` | PrometheusRule | rag-system | Alert rules |
+| Prometheus + Grafana | Helm release | monitoring | Full observability stack |
+
 ## Versions
 
 | Version | Tag | Description |
@@ -447,6 +560,4 @@ Tracked metrics per run:
 | v2.0.0 | `v2.0.0` | LangChain + Pinecone + MongoDB + advanced chunking |
 | v2.1.0 | `v2.1.0` | Celery + Redis background jobs + Flower |
 | v2.2.0 | `v2.2.0` | Nginx LB + Prometheus + Grafana + Gunicorn + auto-scaling |
-
----
-
+| v2.2.2-k8s | `v2.3.0-k8s` | Full Kubernetes deployment — KEDA + HPA + Ingress |
