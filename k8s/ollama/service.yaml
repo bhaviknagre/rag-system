@@ -1,0 +1,27 @@
+# Headless service for StatefulSet (clusterIP: None).
+# This gives each pod its own DNS entry:
+#   ollama-0.ollama-service.rag-system.svc.cluster.local
+#
+# Other pods use the short form from ConfigMap:
+#   http://ollama-service:11434
+# which resolves to the single ollama-0 pod.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama-service
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: ollama
+spec:
+  # ClusterIP: None makes this a headless service —
+  # DNS resolves directly to pod IPs, not a virtual IP
+  clusterIP: None
+  selector:
+    app: ollama
+  ports:
+    - name: ollama
+      port: 11434
+      targetPort: 11434
+      protocol: TCP

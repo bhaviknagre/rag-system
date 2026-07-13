@@ -1,0 +1,23 @@
+# Fallback HPA for CPU-based scaling in case KEDA is unavailable.
+# Only activates if KEDA ScaledObject is removed.
+# Commented out by default — KEDA takes priority.
+
+# apiVersion: autoscaling/v2
+# kind: HorizontalPodAutoscaler
+# metadata:
+#   name: rag-worker-hpa-fallback
+#   namespace: rag-system
+# spec:
+#   scaleTargetRef:
+#     apiVersion: apps/v1
+#     kind: Deployment
+#     name: rag-worker
+#   minReplicas: 1
+#   maxReplicas: 10
+#   metrics:
+#     - type: Resource
+#       resource:
+#         name: cpu
+#         target:
+#           type: Utilization
+#           averageUtilization: 70

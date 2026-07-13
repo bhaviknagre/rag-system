@@ -1,0 +1,50 @@
+# ServiceMonitor tells Prometheus exactly how to scrape our RAG API.
+# The kube-prometheus-stack operator watches for ServiceMonitor resources
+# and automatically adds them to Prometheus scrape config.
+# No need to edit prometheus.yml manually — this is the K8s-native way.
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: rag-api-monitor
+  namespace: rag-system
+  labels:
+    # Must match the prometheus operator's serviceMonitorSelector
+    release: prometheus-stack
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: api    # matches our API service label
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames:
+      - rag-system
+
+---
+# ServiceMonitor for Redis exporter
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: redis-monitor
+  namespace: rag-system
+  labels:
+    release: prometheus-stack
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: redis
+  endpoints:
+    - port: redis
+      path: /metrics
+      interval: 15s
+  namespaceSelector:
+    matchNames:
+      - rag-system

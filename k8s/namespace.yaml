@@ -1,0 +1,12 @@
+# Every K8s resource we create goes into this namespace.
+# Keeps RAG completely isolated from anything else on the cluster.
+# kubectl get all -n rag-system shows only our stuff.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rag-system
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/version: "2.2.0"
+    environment: development

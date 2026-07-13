@@ -1,0 +1,20 @@
+# Patches Grafana config to serve under /grafana subpath.
+# Without this Grafana's JS/CSS assets load from / and break.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-ini-override
+  namespace: monitoring
+data:
+  grafana.ini: |
+    [server]
+    root_url = %(protocol)s://%(domain)s/grafana/
+    serve_from_sub_path = true
+
+    [security]
+    admin_user = admin
+    admin_password = ragadmin
+
+    [auth.anonymous]
+    enabled = false

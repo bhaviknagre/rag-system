@@ -1,0 +1,177 @@
+# FastAPI + Gunicorn API deployment.
+# Starts with 2 replicas, HPA scales to 10 based on CPU.
+# Pulls config from ConfigMap and secrets from Secret —
+# no hardcoded values anywhere in this file.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-api
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: api
+  annotations:
+    # Deployment strategy annotation — used by rollout script
+    deployment.kubernetes.io/revision: "1"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rag-api
+  # Rolling update strategy — zero downtime deployments
+  # At most 1 pod unavailable during update
+  # At most 1 extra pod spun up during update
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: rag-api
+        app.kubernetes.io/component: api
+      annotations:
+        # Forces pod restart when configmap changes
+        annotations:
+        # Forces pod restart when configmap changes
+        checksum/config: "{{ .Values.configChecksum }}"
+    spec:
+      # Graceful shutdown — let in-flight requests finish
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: rag-api
+          # 🔧 REPLACE with your Docker Hub username if pushing to registry
+          # For Minikube local build: minikube image build -t rag-api:latest .
+          image: rag-api:latest
+          imagePullPolicy: Never    # use local Minikube image
+          ports:
+            - containerPort: 8000
+              name: http
+
+          # Load all non-sensitive config from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: rag-config
+
+          # Load sensitive values from Secret individually
+          env:
+            - name: PINECONE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rag-secrets
+                  key: PINECONE_API_KEY
+            - name: MONGODB_ATLAS_URI
+              valueFrom:
+                secretKeyRef:
+                  name: rag-secrets
+                  key: MONGODB_ATLAS_URI
+
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"       
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+
+          # Liveness — restart pod if API stops responding
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 3
+            timeoutSeconds: 45
+
+          # Readiness — only send traffic when API is fully up
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 3
+            timeoutSeconds: 45
+
+          # Startup probe — gives slow-starting containers extra time
+          # Prevents liveness from killing pod during cold start
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 12    
+            timeoutSeconds: 45      
+
+          volumeMounts:
+            - name: raw-data
+              mountPath: /app/data/raw
+            - name: processed-data
+              mountPath: /app/data/processed
+            - name: vectorstore-data
+              mountPath: /app/data/vectorstore
+
+      volumes:
+        - name: raw-data
+          persistentVolumeClaim:
+            claimName: raw-data-pvc
+        - name: processed-data
+          persistentVolumeClaim:
+            claimName: processed-data-pvc
+        - name: vectorstore-data
+          persistentVolumeClaim:
+            claimName: vectorstore-pvc
+
+---
+# Shared PVCs for data directories
+# ReadWriteMany would be needed for true multi-node sharing
+# On Minikube ReadWriteOnce is fine since all pods are on one node
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: raw-data-pvc
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: processed-data-pvc
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vectorstore-pvc
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

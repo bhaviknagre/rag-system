@@ -1,0 +1,100 @@
+# PrometheusRule — defines alert rules in K8s-native way.
+# The prometheus operator picks these up automatically.
+# Same alerts as our alerts.yml but managed as K8s resources.
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: rag-alerts
+  namespace: rag-system
+  labels:
+    release: prometheus-stack
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: monitoring
+spec:
+  groups:
+    - name: rag.rules
+      interval: 30s
+      rules:
+
+        # API down
+        - alert: RAGAPIDown
+          expr: up{job="rag-api-monitor"} == 0
+          for: 30s
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "RAG API is unreachable"
+            description: "RAG API has been down for 30 seconds"
+            runbook: "kubectl rollout restart deployment/rag-api -n rag-system"
+
+        # High latency
+        - alert: RAGHighAskLatency
+          expr: |
+            histogram_quantile(0.95,
+              rate(rag_ask_latency_seconds_bucket[5m])
+            ) > 30
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "RAG /ask p95 latency > 30s"
+            description: "95th percentile ask latency is {{ $value }}s"
+
+        # Empty retrievals
+        - alert: RAGHighEmptyRetrievals
+          expr: |
+            rate(rag_empty_retrievals_total[5m]) /
+            rate(rag_ask_requests_total[5m]) > 0.5
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "More than 50% of queries return no chunks"
+            description: "Empty retrieval rate is {{ $value | humanizePercentage }}"
+
+        # LLM errors
+        - alert: RAGLLMErrors
+          expr: rate(rag_llm_errors_total[5m]) > 0.1
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "LLM generation errors spiking"
+            description: "Run: kubectl logs -n rag-system deployment/rag-api"
+
+        # Redis down
+        - alert: RedisDown
+          expr: up{job="redis-monitor"} == 0
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "Redis is unreachable"
+            description: "Celery jobs will fail. Check redis pod."
+
+        # Worker queue too deep
+        - alert: RAGWorkerQueueBacklog
+          expr: |
+            redis_list_length{key="celery"} > 20
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Celery queue backlog > 20 jobs"
+            description: "{{ $value }} jobs queued. KEDA should be scaling workers."
+
+        # Pod OOM killed
+        - alert: RAGPodOOMKilled
+          expr: |
+            kube_pod_container_status_last_terminated_reason{
+              namespace="rag-system",
+              reason="OOMKilled"
+            } == 1
+          for: 0m
+          labels:
+            severity: critical
+          annotations:
+            summary: "RAG pod OOM killed"
+            description: "Pod {{ $labels.pod }} was OOM killed. Increase memory limits."

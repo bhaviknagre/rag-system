@@ -1,0 +1,46 @@
+# Non-sensitive configuration — safe to commit to git.
+# These are the same values as your .env file but
+# managed by Kubernetes instead of a file on disk.
+# Mounted as environment variables into every pod that needs them.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-config
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: config
+data:
+  # ── Vector DB ────────────────────────────
+  VECTOR_DB_PROVIDER: "chroma"
+  CHROMA_PERSIST_DIR: "/app/data/vectorstore"
+  CHROMA_COLLECTION_NAME: "rag_documents"
+  PINECONE_INDEX_NAME: "rag-system-index"
+  MONGODB_DB_NAME: "rag_system"
+  MONGODB_COLLECTION_NAME: "document_chunks"
+  MONGODB_VECTOR_INDEX_NAME: "vector_index"
+
+  # ── Embedding ────────────────────────────
+  EMBEDDING_MODEL: "all-MiniLM-L6-v2"
+
+  # ── LLM ──────────────────────────────────
+  # Points to the Ollama service inside the cluster
+  # Service name: ollama-service, port: 11434
+  OLLAMA_BASE_URL: "http://ollama-service:11434"
+  LLM_MODEL: "llama3.2:1b"
+
+  # ── Chunking ─────────────────────────────
+  CHUNKING_STRATEGY: "recursive"
+  CHUNK_SIZE: "500"
+  CHUNK_OVERLAP: "50"
+
+  # ── Retrieval ────────────────────────────
+  TOP_K: "4"
+
+  # ── Celery + Redis ───────────────────────
+  # Points to Redis service inside the cluster
+  # Service name: redis-service, port: 6379
+  REDIS_URL: "redis://redis-service:6379/0"
+  CELERY_BROKER_URL: "redis://redis-service:6379/0"
+  CELERY_RESULT_BACKEND: "redis://redis-service:6379/0"

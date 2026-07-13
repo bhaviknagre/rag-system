@@ -1,0 +1,125 @@
+# Ollama runs as a StatefulSet so the model volume
+# is permanently tied to ollama-0 pod identity.
+# An init container pulls the model on first boot —
+# subsequent restarts skip the pull since it is already on disk.
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ollama
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: ollama
+spec:
+  serviceName: ollama-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+        app.kubernetes.io/component: ollama
+    spec:
+      # Init container pulls the model before main container starts.
+      # Runs once on first boot — skipped on subsequent restarts
+      # because the model is already in the volume.
+      initContainers:
+        - name: pull-model
+          image: ollama/ollama:latest
+          command:
+            - sh
+            - -c
+            - |
+              echo "Starting Ollama server in background..."
+              ollama serve &
+              SERVER_PID=$!
+              echo "Waiting for Ollama to be ready..."
+              sleep 5
+              until ollama list > /dev/null 2>&1; do
+                echo "Waiting..."
+                sleep 2
+              done
+              echo "Pulling llama3.2:1b..."
+              # 🔧 Change this if you want a different model
+              ollama pull llama3.2:1b
+              echo "Model pulled successfully"
+              kill $SERVER_PID
+          env:
+            - name: OLLAMA_HOST
+              value: "0.0.0.0:11434"
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "3Gi"
+              cpu: "2000m"
+
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          ports:
+            - containerPort: 11434
+              name: ollama
+
+          env:
+            - name: OLLAMA_HOST
+              value: "0.0.0.0:11434"
+            - name: OLLAMA_KEEP_ALIVE
+              value: "5m"
+            - name: OLLAMA_NUM_PARALLEL
+              value: "1"
+
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+
+          # Liveness — restart if Ollama stops responding
+          livenessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 5
+            timeoutSeconds: 10
+
+          # Readiness — only route traffic when model server is up
+          readinessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 5
+            timeoutSeconds: 10
+
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+
+  # volumeClaimTemplates is the StatefulSet superpower —
+  # each pod replica gets its own PVC automatically.
+  # ollama-0 gets ollama-models-ollama-0
+  # ollama-1 would get ollama-models-ollama-1 (if scaled)
+  volumeClaimTemplates:
+    - metadata:
+        name: ollama-models
+        labels:
+          app.kubernetes.io/component: ollama
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi

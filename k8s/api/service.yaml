@@ -1,0 +1,21 @@
+# ClusterIP service for internal pod-to-pod communication.
+# Ingress (Phase 7) will route external traffic here.
+# K8s automatically load balances across all healthy rag-api pods.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-api-service
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: api
+spec:
+  type: ClusterIP
+  selector:
+    app: rag-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP

@@ -1,0 +1,103 @@
+# Celery worker deployment.
+# No replicas set here — KEDA ScaledObject controls replica count.
+# Workers scale from 0 (idle) to 10 (busy) based on Redis queue depth.
+# Setting replicas: 0 here means zero workers when queue is empty —
+# saves memory on Minikube significantly.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-worker
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: worker
+spec:
+  # DO NOT set replicas here — KEDA manages this
+  selector:
+    matchLabels:
+      app: rag-worker
+  template:
+    metadata:
+      labels:
+        app: rag-worker
+        app.kubernetes.io/component: worker
+    spec:
+      # Give running tasks time to finish before pod is killed
+      terminationGracePeriodSeconds: 660    # matches soft_time_limit + buffer
+
+      containers:
+        - name: rag-worker
+          image: rag-api:latest             # same image as API — contains all code
+          imagePullPolicy: Never
+          command:
+            - celery
+            - -A
+            - src.worker.celery_app
+            - worker
+            - --loglevel=info
+            - --concurrency=2
+            - --max-tasks-per-child=50
+            - --without-gossip
+            - --without-mingle
+            - -E                            # enable events for Flower
+
+          # Load all config from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: rag-config
+
+          # Load secrets
+          env:
+            - name: PINECONE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rag-secrets
+                  key: PINECONE_API_KEY
+            - name: MONGODB_ATLAS_URI
+              valueFrom:
+                secretKeyRef:
+                  name: rag-secrets
+                  key: MONGODB_ATLAS_URI
+
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1500m"
+
+          # Liveness — restart worker if it stops responding to Celery ping
+          livenessProbe:
+            exec:
+              command:
+                - celery
+                - -A
+                - src.worker.celery_app
+                - inspect
+                - ping
+                - --timeout=5
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            failureThreshold: 3
+            timeoutSeconds: 10
+
+          volumeMounts:
+            - name: raw-data
+              mountPath: /app/data/raw
+            - name: processed-data
+              mountPath: /app/data/processed
+            - name: vectorstore-data
+              mountPath: /app/data/vectorstore
+
+      volumes:
+        - name: raw-data
+          persistentVolumeClaim:
+            claimName: raw-data-pvc
+        - name: processed-data
+          persistentVolumeClaim:
+            claimName: processed-data-pvc
+        - name: vectorstore-data
+          persistentVolumeClaim:
+            claimName: vectorstore-pvc

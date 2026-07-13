@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flower
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: flower
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flower
+  template:
+    metadata:
+      labels:
+        app: flower
+        app.kubernetes.io/component: flower
+    spec:
+      containers:
+        - name: flower
+          image: rag-api:latest
+          imagePullPolicy: Never
+          command:
+            - celery
+            - -A
+            - src.worker.celery_app
+            - flower
+            - --port=5555
+            - --broker_api=redis://redis-service:6379/0
+
+          envFrom:
+            - configMapRef:
+                name: rag-config
+          env:
+            - name: PINECONE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rag-secrets
+                  key: PINECONE_API_KEY
+            - name: MONGODB_ATLAS_URI
+              valueFrom:
+                secretKeyRef:
+                  name: rag-secrets
+                  key: MONGODB_ATLAS_URI
+
+          ports:
+            - containerPort: 5555
+              name: flower
+
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "300m"
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5555
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5555
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3

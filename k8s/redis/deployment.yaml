@@ -1,0 +1,93 @@
+# Redis runs as a single replica — no clustering needed for dev/learning.
+# Data persists to a volume so job results survive pod restarts.
+# Other pods reach it via the Service DNS name: redis-service:6379
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+        app.kubernetes.io/component: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.2-alpine
+          ports:
+            - containerPort: 6379
+              name: redis
+
+          # Same config as docker-compose.yml
+          command:
+            - redis-server
+            - --appendonly
+            - "yes"
+            - --maxmemory
+            - "256mb"
+            - --maxmemory-policy
+            - allkeys-lru
+            - --tcp-keepalive
+            - "60"
+
+          # Resource limits — K8s enforces these hard
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "300Mi"
+              cpu: "300m"
+
+          # Liveness probe — K8s restarts pod if this fails
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+
+          # Readiness probe — K8s only sends traffic when this passes
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+
+          # Mount persistent volume
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-pvc
+
+---
+# PersistentVolumeClaim — requests storage from Minikube
+# Minikube auto-provisions this using hostPath storage class
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/component: redis
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

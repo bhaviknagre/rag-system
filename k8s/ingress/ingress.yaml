@@ -1,0 +1,121 @@
+# Nginx Ingress — single entry point for all services.
+# Path-based routing to API, Flower, Grafana, Prometheus.
+# Rate limiting and size limits applied at ingress level.
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rag-ingress
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: ingress
+  annotations:
+    # Nginx ingress controller
+    kubernetes.io/ingress.class: nginx
+
+    # Rate limiting — applied per client IP
+    nginx.ingress.kubernetes.io/limit-rps: "30"
+    nginx.ingress.kubernetes.io/limit-connections: "20"
+
+    # Upload size limit (for POST /upload)
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+
+    # Timeouts — LLM generation takes time
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+
+    # Enable CORS
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Content-Type, Authorization, X-Request-ID"
+
+    # Sticky sessions for Grafana (prevents logout on pod switch)
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: "rag-route"
+    nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
+
+spec:
+  rules:
+    - host: rag.local
+      http:
+        paths:
+
+          # ── RAG API (all routes) ──────────────────
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rag-api-service
+                port:
+                  number: 80
+
+---
+# Separate Ingress for monitoring services
+# in their own namespace (monitoring)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: monitoring-ingress
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    # Strip /grafana prefix before forwarding to Grafana
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  rules:
+    - host: rag.local
+      http:
+        paths:
+
+          # ── Grafana ──────────────────────────────
+          - path: /grafana(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: prometheus-stack-grafana
+                port:
+                  number: 80
+
+          # ── Prometheus ───────────────────────────
+          - path: /prometheus(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: prometheus-stack-kube-prometheus-prometheus
+                port:
+                  number: 9090
+
+---
+# Ingress for Flower (in rag-system namespace)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flower-ingress
+  namespace: rag-system
+  labels:
+    app.kubernetes.io/name: rag-system
+    app.kubernetes.io/component: ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  rules:
+    - host: rag.local
+      http:
+        paths:
+
+          # ── Flower ───────────────────────────────
+          - path: /flower(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: flower-service
+                port:
+                  number: 5555

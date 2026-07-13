@@ -92,12 +92,19 @@ Instrumentator(
 @app.get("/health", response_model=HealthResponse)
 def health_check():
     chunk_counts = {}
-    for provider in ["chroma", "pinecone", "mongodb"]:
+
+    # Chroma is local and fast — always check it
+    try:
+        chunk_counts["chroma"] = count_chunks("chroma")
+    except Exception as e:
+        chunk_counts["chroma"] = f"error: {str(e)[:40]}"
+
+    # Cloud backends — skip if they're slow, don't block health check
+    for provider in ["pinecone", "mongodb"]:
         try:
-            count = count_chunks(provider)
-            chunk_counts[provider] = count
-        except Exception as e:
-            chunk_counts[provider] = f"error: {str(e)[:60]}"
+            chunk_counts[provider] = count_chunks(provider)
+        except Exception:
+            chunk_counts[provider] = "unavailable"
 
     update_vector_store_gauges()
 
@@ -109,7 +116,6 @@ def health_check():
         llm_model=settings.llm_model,
         chunk_counts=chunk_counts
     )
-
 
 # ── Ingest ────────────────────────────────────
 

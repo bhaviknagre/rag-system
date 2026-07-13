@@ -1,0 +1,125 @@
+# Grafana dashboard as a ConfigMap.
+# The grafana sidecar picks this up automatically and loads it.
+# Label: grafana_dashboard: "1" is the magic that triggers the sidecar.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-grafana-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"       # sidecar watches for this label
+    app.kubernetes.io/name: rag-system
+data:
+  rag-dashboard.json: |
+    {
+      "title": "RAG System",
+      "uid": "rag-k8s-main",
+      "version": 1,
+      "refresh": "10s",
+      "time": { "from": "now-1h", "to": "now" },
+      "panels": [
+        {
+          "id": 1, "type": "stat",
+          "title": "Total Ask Requests",
+          "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+          "targets": [{ "expr": "sum(rag_ask_requests_total)" }],
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" },
+            "thresholds": { "steps": [{ "color": "blue", "value": 0 }] } } }
+        },
+        {
+          "id": 2, "type": "stat",
+          "title": "Ingest Jobs",
+          "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+          "targets": [{ "expr": "sum(rag_ingest_jobs_submitted_total)" }],
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" },
+            "thresholds": { "steps": [{ "color": "green", "value": 0 }] } } }
+        },
+        {
+          "id": 3, "type": "stat",
+          "title": "Active Workers",
+          "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+          "targets": [{ "expr": "kube_deployment_status_replicas_ready{deployment=\"rag-worker\",namespace=\"rag-system\"}" }],
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" },
+            "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 5 }] } } }
+        },
+        {
+          "id": 4, "type": "stat",
+          "title": "API Replicas",
+          "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+          "targets": [{ "expr": "kube_deployment_status_replicas_ready{deployment=\"rag-api\",namespace=\"rag-system\"}" }],
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" },
+            "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] } } }
+        },
+        {
+          "id": 5, "type": "stat",
+          "title": "Redis Queue Depth",
+          "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+          "targets": [{ "expr": "redis_list_length{key=\"celery\"}" }],
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" },
+            "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 20 }] } } }
+        },
+        {
+          "id": 6, "type": "stat",
+          "title": "LLM Errors",
+          "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+          "targets": [{ "expr": "sum(rag_llm_errors_total)" }],
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" },
+            "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "red", "value": 1 }] } } }
+        },
+        {
+          "id": 7, "type": "timeseries",
+          "title": "Ask Request Rate (per min)",
+          "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+          "targets": [{ "expr": "rate(rag_ask_requests_total[1m]) * 60", "legendFormat": "{{provider}}" }],
+          "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10 } } }
+        },
+        {
+          "id": 8, "type": "timeseries",
+          "title": "Ask Latency p50 / p95 / p99",
+          "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+          "targets": [
+            { "expr": "histogram_quantile(0.50, rate(rag_ask_latency_seconds_bucket[5m]))", "legendFormat": "p50" },
+            { "expr": "histogram_quantile(0.95, rate(rag_ask_latency_seconds_bucket[5m]))", "legendFormat": "p95" },
+            { "expr": "histogram_quantile(0.99, rate(rag_ask_latency_seconds_bucket[5m]))", "legendFormat": "p99" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "s", "custom": { "lineWidth": 2 } } }
+        },
+        {
+          "id": 9, "type": "timeseries",
+          "title": "KEDA Worker Scaling — Queue vs Replicas",
+          "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+          "targets": [
+            { "expr": "redis_list_length{key=\"celery\"}", "legendFormat": "Queue depth" },
+            { "expr": "kube_deployment_status_replicas_ready{deployment=\"rag-worker\",namespace=\"rag-system\"}", "legendFormat": "Active workers" }
+          ],
+          "fieldConfig": { "defaults": { "custom": { "lineWidth": 2 } } }
+        },
+        {
+          "id": 10, "type": "timeseries",
+          "title": "API HPA — CPU vs Replicas",
+          "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+          "targets": [
+            { "expr": "kube_deployment_status_replicas_ready{deployment=\"rag-api\",namespace=\"rag-system\"}", "legendFormat": "API replicas" },
+            { "expr": "rate(container_cpu_usage_seconds_total{pod=~\"rag-api.*\",namespace=\"rag-system\"}[1m]) * 100", "legendFormat": "CPU %" }
+          ],
+          "fieldConfig": { "defaults": { "custom": { "lineWidth": 2 } } }
+        },
+        {
+          "id": 11, "type": "timeseries",
+          "title": "Vector Store Chunk Counts",
+          "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+          "targets": [{ "expr": "rag_vector_store_chunks", "legendFormat": "{{provider}}" }],
+          "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 5 } } }
+        },
+        {
+          "id": 12, "type": "timeseries",
+          "title": "Pod Memory Usage",
+          "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+          "targets": [
+            { "expr": "container_memory_usage_bytes{namespace=\"rag-system\",container!=\"\"}", "legendFormat": "{{pod}}" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "lineWidth": 2 } } }
+        }
+      ]
+    }
