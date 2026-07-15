@@ -63,6 +63,7 @@ ok "Phase 6 done"
 
 # Phase 7
 log "Phase 7: Ingress"
+kubectl apply -f k8s/ingress/grafan-config.yaml
 kubectl apply -f k8s/ingress/ingress.yaml
 ok "Phase 7 done"
 

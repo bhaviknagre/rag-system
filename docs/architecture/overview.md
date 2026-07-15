@@ -12,19 +12,22 @@
 | Component | Technology | Version | Port |
 |---|---|---|---|
 | Load Balancer | Nginx | 1.27-alpine | 80 |
-| API Server | FastAPI + Gunicorn | 0.115.6 / 23.0.0 | 8000 |
+| API Server | FastAPI + Gunicorn | 0.139.0 / 23.0.0 | 8000 |
 | Worker | Celery | 5.3.6 | — |
 | Message Broker | Redis | 7.2-alpine | 6379 |
-| Job Monitor | Flower | 1.2.0 | 5555 |
+| Job Monitor | Flower | 2.0.1 | 5555 |
 | Embedding Model | sentence-transformers | 3.3.1 | in-process |
-| LLM | Ollama llama3.2:1b | 0.30.11 | 11434 |
+| LLM | Ollama llama3.2:1b | latest | 11434 |
 | Vector Store 1 | ChromaDB | 0.5.23 | file |
 | Vector Store 2 | Pinecone | serverless | HTTPS |
 | Vector Store 3 | MongoDB Atlas | M0 free | HTTPS |
-| LLM Framework | LangChain | 1.3.13 | library |
+| LLM Framework | LangChain | 0.3.30 (core 0.3.86) | library |
 | Data Versioning | DVC | 3.50.1 | CLI |
 | Metrics | Prometheus | v2.55.1 | 9090 |
 | Dashboards | Grafana | 11.4.0 | 3000 |
+
+Exact pins live in `requirements.txt`; see the
+[Security guide](../guides/security.md) for the current audit status.
 
 ## Two Pipelines
 

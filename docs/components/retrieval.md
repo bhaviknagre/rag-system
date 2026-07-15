@@ -1,11 +1,18 @@
 # Retrieval
 
-**File:** `src/retrieval/retriever.py`
+**File:** `src/vectorstore/store.py` — `query_store()`
 
-Thin wrapper around the vector store query that the pipeline
-and API call. Kept as a separate layer so retrieval logic can
-be extended later (re-ranking, hybrid search) without touching
-the vector store.
+`src/pipeline.py` calls `query_store()` directly for every `/ask` request.
+
+!!! note "`src/retrieval/retriever.py` is not on the live request path"
+    A separate `Retriever` class exists in `src/retrieval/retriever.py` but
+    is not imported by `pipeline.py` or `api/main.py` — the only reference
+    to it left in the codebase is `generator.py`'s standalone `__main__`
+    test block. It also calls a `.query()` method that the LangChain
+    `VectorStore` interface doesn't expose (the real method is
+    `similarity_search_with_relevance_scores`), so running it directly
+    raises `AttributeError`. It's dead code, not a hidden alternate path —
+    documented here so it isn't mistaken for the real retrieval layer.
 
 ---
 

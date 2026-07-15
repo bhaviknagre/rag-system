@@ -63,6 +63,10 @@ Loader → Chunker → Embedder → Vector Store
 Ollama (llama3.2:1b)
 ```
 
+See [Architecture Diagrams](architecture/diagrams.md) for the full visual
+reference — system topology, ingestion/query sequence diagrams, monitoring
+flow, and Kubernetes topology.
+
 ## Versions
 
 | Version | Description |

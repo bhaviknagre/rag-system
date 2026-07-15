@@ -6,7 +6,7 @@
 
 ```bash
 # Clone + venv
-git clone https://github.com/your-username/rag-system.git
+git clone https://github.com/bhaviknagre/rag-system.git
 cd rag-system
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt

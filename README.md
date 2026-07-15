@@ -10,27 +10,35 @@ runs the LLM locally with zero API cost. The entire stack is containerized
 with Docker Compose, monitored via Prometheus + Grafana, and data pipelines
 are versioned and reproducible via DVC.
 
+**Full documentation, including visual architecture and flow diagrams,
+is published at [rag-documentation.github.io/rag-system](https://rag-documentation.github.io/rag-system/).**
+
 ---
 
 ## Architecture
-``` bash
+
+See [Architecture Diagrams](https://rag-documentation.github.io/rag-system/architecture/diagrams/)
+for the full visual reference (system topology, ingestion/query sequence
+diagrams, monitoring flow, vector store factory, and Kubernetes topology).
+Summary:
+
+```
 Ingestion Flow (async):
 POST /ingest → Nginx → API → Redis Queue → Celery Worker
 → Loader → Chunker → Embedder → Vector Store
 GET /jobs/{id} → poll status: queued → running → success
-```
-```bash
+
 Query Flow (sync):
 POST /ask → Nginx → API → Vector Store (top-k)
 → Ollama (generate) → Answer + Sources
-```
-```bash
+
 Monitoring:
 API /metrics → Prometheus → Grafana Dashboards
 Redis        → redis-exporter → Prometheus
 Nginx        → nginx-exporter → Prometheus
 Celery       → Flower (port 5555)
 ```
+
 ---
 
 ## Tech Stack
@@ -38,62 +46,62 @@ Celery       → Flower (port 5555)
 | Layer | Technology | Purpose |
 |---|---|---|
 | Load Balancer | Nginx 1.27 | Rate limiting, reverse proxy, load balancing |
-| API Server | FastAPI + Gunicorn + Uvicorn | HTTP endpoints, multi-process serving |
+| API Server | FastAPI 0.139 + Gunicorn + Uvicorn | HTTP endpoints, multi-process serving |
 | Background Jobs | Celery 5.3 | Async ingestion task queue |
 | Message Broker | Redis 7.2 | Job queue + result backend |
 | Job Monitoring | Flower | Real-time Celery task dashboard |
 | Embeddings | sentence-transformers (all-MiniLM-L6-v2) | Local, free, 384-dim vectors |
 | LLM | Ollama (llama3.2:1b) | Local inference, no API cost |
 | Vector DB | Chroma / Pinecone / MongoDB Atlas | Switchable backends |
-| LLM Framework | LangChain | Vector store abstraction layer |
+| LLM Framework | LangChain 0.3.x | Vector store abstraction layer |
 | Metrics | Prometheus + Grafana | System + business metrics |
 | Data Versioning | DVC | Reproducible data pipelines |
 | Containerization | Docker + Docker Compose | Full stack orchestration |
 | Config | pydantic-settings + .env | Type-safe environment config |
 
-
+Dependency versions are pinned in `requirements.txt` and audited with
+`pip-audit`; see the [Security guide](https://rag-documentation.github.io/rag-system/guides/security/)
+for current status and any deliberately deferred items.
 
 ## Project Structure
- ``` bash
----
+```
 rag-system/
 ├── api/
 │   ├── main.py              # FastAPI app, all endpoints, Prometheus metrics
 │   ├── middleware.py        # RequestID, Timing, ProcessTime middleware
 │   └── schemas.py           # Pydantic request/response models
-├──k8s/
+├── k8s/
 │   ├── namespace.yaml
-│   |── configmap
-│   │   ├── configmap.yaml
-│   ├── secrets
-│   │   ├── secrets.yaml
-│   ├── redis
-│   |    ├── deployment.yaml        
-│   │   ├── service.yaml 
-│   ├── ollama
-│   │   ├── statefulset.yaml          
+│   ├── configmap/configmap.yaml
+│   ├── secrets/secrets.yaml
+│   ├── redis/
+│   │   ├── deployment.yaml
+│   │   └── service.yaml
+│   ├── ollama/
+│   │   ├── statefulset.yaml
+│   │   └── service.yaml
+│   ├── api/
+│   │   ├── deployment.yaml
 │   │   ├── service.yaml
-│   ├── api
-│   │   ├── deployment.yaml          
-│   │   ├── service.yaml
-│   │   ├── hpa.yaml
-│   ├── worker
-│   │   ├── deployment.yaml           
-│   │   ├── keda-scaledobject.yaml
-│   ├── flower
-│   │   ├── deployment.yaml          
-│   │   ├── service.yaml
-│   ├── monitoring
-│   │   ├── ervicemonitor.yaml         
+│   │   └── hpa.yaml
+│   ├── worker/
+│   │   ├── deployment.yaml
+│   │   └── keda-scaledobject.yaml
+│   ├── flower/
+│   │   ├── deployment.yaml
+│   │   └── service.yaml
+│   ├── monitoring/
+│   │   ├── servicemonitor.yaml
 │   │   ├── prometheus-rules.yaml
-│   │   ├── grafana-dashboard-configmap.yaml
-│   ├── ingress/ingress.yaml
-│   │   ├── ingress.yaml          
-│   |── scripts
-│   │   ├── build-images.sh          
-│   │   ├── deploy.sh
-│   │   ├── rollout.sh
-│   │   ├── setup-hosts.sh 
+│   │   └── grafana-dashboard-configmap.yaml
+│   ├── ingress/
+│   │   ├── ingress.yaml
+│   │   └── grafan-config.yaml   # Grafana /grafana subpath asset fix
+│   └── scripts/
+│       ├── build-images.sh
+│       ├── deploy.sh
+│       ├── rollout.sh
+│       └── setup-hosts.sh
 ├── src/
 │   ├── config.py            # Centralized settings via pydantic-settings
 │   ├── pipeline.py          # ingest() + ask() — core entry points
@@ -102,14 +110,14 @@ rag-system/
 │   │   ├── loader.py        # PDF / DOCX / TXT document loader
 │   │   └── chunker.py       # Recursive / Semantic / Sentence-window chunking
 │   │
-│   ├── embeddings/
+│   ├── embedings/           # (sic — pre-existing typo, kept to avoid an import-path rename)
 │   │   └── embedder.py      # HuggingFace embeddings (LangChain interface)
 │   │
 │   ├── vectorstore/
 │   │   └── store.py         # Multi-backend factory (Chroma/Pinecone/MongoDB)
 │   │
 │   ├── retrieval/
-│   │   └── retriever.py     # Top-k retrieval wrapper
+│   │   └── retriever.py     # Not on the live request path — see docs/components/retrieval.md
 │   │
 │   ├── generation/
 │   │   └── generator.py     # Ollama LLM generation
@@ -151,7 +159,6 @@ rag-system/
 ├── Dockerfile               # Single image for API, worker, flower
 ├── docker-compose.yml       # Full production stack (10 services)
 ├── requirements.txt         # Pinned Python dependencies
-├── CHANGELOG.md             # Version history
 └── .env.example             # Environment variable template
 ```
 ---
@@ -160,7 +167,7 @@ rag-system/
 
 # 1. Clone and create virtual environment
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/bhaviknagre/rag-system.git
 cd rag-system
 python -m venv .venv && source .venv/bin/activate
 ```
@@ -177,7 +184,7 @@ cp .env.example .env
 ```
 
 # 4. Add documents
-```
+```bash
 cp your_docs/*.pdf data/raw/
 ```
 
@@ -192,6 +199,7 @@ This starts Redis (Docker), Ollama, Celery worker, Flower, and FastAPI together.
 | URL | Service |
 |---|---|
 | http://localhost:8000/docs | Swagger UI |
+| http://localhost:8000/rag-system | Web UI |
 | http://localhost:5555 | Flower (Celery monitoring) |
 
 
@@ -207,7 +215,7 @@ cp .env.example .env
 # 2. Add documents
 cp your_docs/*.pdf data/raw/
 
-# 3. Start all 10 services
+# 3. Start all services
 docker compose up --build -d
 
 # 4. Verify everything is healthy
@@ -226,6 +234,13 @@ curl -X POST http://localhost/ask \
   -H "Content-Type: application/json" \
   -d '{"question": "What is this document about?", "provider": "chroma"}'
 ```
+
+> **Disk space:** the full image build (PyTorch + sentence-transformers +
+> the LangChain stack) pulls several GB of layers. Make sure Docker Desktop
+> has real free disk headroom before building — `docker system df` shows
+> current usage, and `docker system prune` (safe: only removes stopped
+> containers, dangling images, and build cache, never volumes) reclaims
+> space if a build fails with I/O or "no space left on device" errors.
 
 ---
 
@@ -256,11 +271,13 @@ least-connections strategy. No config change needed.
 | GET | `/jobs/{job_id}` | Poll job: queued → running → success / failed |
 | DELETE | `/jobs/{job_id}/cancel` | Cancel a queued or running job |
 | POST | `/ask` | Retrieve context + generate grounded answer |
+| POST | `/upload` | Upload a file, optionally queue ingestion immediately |
 | GET | `/providers` | List vector DB backends + connection status |
 | GET | `/strategies` | List chunking strategies + descriptions |
 | GET | `/metrics` | Prometheus metrics endpoint |
 | GET | `/docs` | Swagger UI |
 | GET | `/redoc` | ReDoc UI |
+| GET | `/rag-system` | Web UI (drag-and-drop upload + Q&A) |
 
 ### POST /ingest
 Returns immediately with `job_id`. Ingestion runs in background via Celery.
@@ -328,6 +345,10 @@ Poll until `status` is `success` or `failed`.
 }
 ```
 
+> `/ask` always returns `200 OK` with a valid JSON body even if the LLM is
+> unreachable — check the *content* of `answer` for an `"Error: ..."`
+> prefix, not just the HTTP status.
+
 ---
 
 ## Chunking Strategies
@@ -357,6 +378,10 @@ Switch backend per request — the same API, same embeddings, different store:
 ```json
 { "provider": "pinecone", "strategy": "recursive" }
 ```
+
+Only the backend actually selected needs credentials — `chroma` requires
+none, and the `pinecone` / `mongodb` clients are built lazily on first use,
+not at process startup.
 
 ---
 
@@ -402,6 +427,10 @@ Tracked metrics per run:
 | Flower | http://localhost:5555 | — |
 | API metrics | http://localhost/metrics | — |
 
+> Change the Grafana admin password (`GF_SECURITY_ADMIN_PASSWORD` in
+> `docker-compose.yml`) before any real deployment — `ragadmin` is a
+> local-dev default only.
+
 ### Prometheus metrics (custom)
 
 | Metric | Type | Description |
@@ -441,7 +470,7 @@ Tracked metrics per run:
 | `OLLAMA_BASE_URL` | No | `http://localhost:11434` | Ollama server URL |
 | `PINECONE_API_KEY` | Pinecone only | — | From https://app.pinecone.io |
 | `PINECONE_INDEX_NAME` | Pinecone only | `rag-system-index` | Must exist, dim=384, cosine |
-| `MONGODB_ATLAS_URI` | MongoDB only | — | `mongodb+srv://...` |
+| `MONGODB_ATLAS_URI` | MongoDB only | — | `mongodb+srv://...` — leave unset unless using this backend |
 | `MONGODB_DB_NAME` | No | `rag_system` | Atlas database name |
 | `MONGODB_COLLECTION_NAME` | No | `document_chunks` | Atlas collection name |
 | `MONGODB_VECTOR_INDEX_NAME` | No | `vector_index` | Atlas vector search index name |
@@ -451,6 +480,11 @@ Tracked metrics per run:
 | `CHUNK_SIZE` | No | `500` | Words per chunk |
 | `CHUNK_OVERLAP` | No | `50` | Overlap between chunks |
 | `TOP_K` | No | `4` | Chunks retrieved per query |
+
+> Never hardcode credentials as field defaults in `src/config.py` — every
+> secret-shaped field must default to `""` and fail loudly (see
+> `_get_mongo_client()` in `src/vectorstore/store.py`) if unset, rather than
+> silently falling back to a real value.
 
 ---
 
@@ -475,6 +509,8 @@ Tracked metrics per run:
 
 The full stack runs on Kubernetes with auto-scaling, queue-based worker
 scaling, and path-based ingress routing — all on a local Minikube cluster.
+See [Kubernetes docs](https://rag-documentation.github.io/rag-system/kubernetes/overview/)
+for the full 7-phase build and topology diagram.
 
 ### Prerequisites
 
@@ -507,6 +543,7 @@ minikube tunnel
 |---|---|
 | http://rag.local | RAG API |
 | http://rag.local/docs | Swagger UI |
+| http://rag.local/rag-system | Web UI |
 | http://rag.local/flower | Flower — Celery task monitor |
 | http://rag.local/grafana | Grafana — dashboards (admin/ragadmin) |
 | http://rag.local/prometheus | Prometheus — metrics |
@@ -548,16 +585,20 @@ bash k8s/scripts/rollout.sh
 | `rag-worker-scaledobject` | ScaledObject (KEDA) | rag-system | Queue-depth scaling |
 | `flower` | Deployment | rag-system | Celery monitoring UI |
 | `rag-ingress` | Ingress | rag-system | Path-based routing |
+| `grafana-ini-override` | ConfigMap | monitoring | Grafana `/grafana` subpath asset fix |
 | `rag-api-monitor` | ServiceMonitor | rag-system | Prometheus scrape config |
 | `rag-alerts` | PrometheusRule | rag-system | Alert rules |
 | Prometheus + Grafana | Helm release | monitoring | Full observability stack |
 
-## Versions
+---
 
-| Version | Tag | Description |
-|---|---|---|
-| v1.0.0 | `v1.0.0` | Basic RAG — Chroma + Ollama + FastAPI + DVC |
-| v2.0.0 | `v2.0.0` | LangChain + Pinecone + MongoDB + advanced chunking |
-| v2.1.0 | `v2.1.0` | Celery + Redis background jobs + Flower |
-| v2.2.0 | `v2.2.0` | Nginx LB + Prometheus + Grafana + Gunicorn + auto-scaling |
-| v2.2.2-k8s | `v2.3.0-k8s` | Full Kubernetes deployment — KEDA + HPA + Ingress |
+## Documentation
+
+Full docs, including the visual architecture/flow diagrams, live at
+**[rag-documentation.github.io/rag-system](https://rag-documentation.github.io/rag-system/)**
+and are built from the `docs/` folder with MkDocs Material. To preview locally:
+
+```bash
+pip install mkdocs-material==9.7.6 mkdocs-minify-plugin==0.8.0
+mkdocs serve
+```

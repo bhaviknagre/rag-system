@@ -35,7 +35,7 @@ keda            ← KEDA operator + Metrics APIServer (Helm release)
 |---|---|---|
 | http://rag.local | FastAPI API | None |
 | http://rag.local/docs | Swagger UI | None |
-| http://rag.local/ui | RAG Web UI | None |
+| http://rag.local/rag-system | RAG Web UI | None |
 | http://rag.local/flower | Celery Monitor | None |
 | http://rag.local/grafana | Grafana | admin / ragadmin |
 | http://rag.local/prometheus | Prometheus | None |

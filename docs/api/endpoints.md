@@ -152,6 +152,7 @@ List all chunking strategies with descriptions.
 
 Prometheus metrics endpoint (scraped by Prometheus every 15s).
 
-## GET /ui
+## GET /rag-system
 
-Full RAG web UI — drag-and-drop upload + question answering interface.
+Full RAG web UI — drag-and-drop upload + question answering interface
+(serves `static/index.html`).

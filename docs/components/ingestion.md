@@ -15,7 +15,7 @@ chunks suitable for embedding.
 | Format | Library | Extraction Method | Known Limitation |
 |---|---|---|---|
 | `.txt` | Python built-in | `read_text()` UTF-8 | None — most reliable |
-| `.pdf` | pypdf 5.1.0 | `page.extract_text()` per page | Scanned PDFs return empty (no OCR) |
+| `.pdf` | pypdf 6.14.2 | `page.extract_text()` per page | Scanned PDFs return empty (no OCR) |
 | `.docx` | python-docx 1.1.2 | paragraph join | Tables inside DOCX ignored |
 
 ### Usage

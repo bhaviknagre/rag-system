@@ -4,7 +4,7 @@
 
 ```bash
 # 1. Clone
-git clone https://github.com/your-username/rag-system.git
+git clone https://github.com/bhaviknagre/rag-system.git
 cd rag-system
 
 # 2. Virtual environment
@@ -50,7 +50,7 @@ bash scripts/healthcheck.sh
 | Service | URL |
 |---|---|
 | API | http://localhost |
-| UI | http://localhost/ui |
+| UI | http://localhost/rag-system |
 | Flower | http://localhost:5555 |
 | Grafana | http://localhost:3000 |
 | Prometheus | http://localhost:9090 |

@@ -1,6 +1,12 @@
 # Embeddings
 
-**File:** `src/embeddings/embedder.py`
+**File:** `src/embedings/embedder.py`
+
+!!! note
+    The directory is `src/embedings/` (missing second "d") in this
+    codebase — a pre-existing typo left as-is rather than renamed, since
+    the module is imported by path in several places and renaming carries
+    real risk for zero functional benefit.
 
 ---
 

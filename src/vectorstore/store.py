@@ -11,10 +11,24 @@ logger = logging.getLogger(__name__)
 
 settings = Settings()
 
-shared_mongo_client = MongoClient(
-    settings.mongodb_atlas_uri,
-    tlsCAFile=certifi.where()
-)
+_mongo_client: Optional[MongoClient] = None
+
+
+def _get_mongo_client() -> MongoClient:
+    # Built lazily so importing this module never requires MONGODB_ATLAS_URI —
+    # only deployments that actually select the mongodb provider need it set.
+    global _mongo_client
+    if _mongo_client is None:
+        if not settings.mongodb_atlas_uri:
+            raise ValueError(
+                "MONGODB_ATLAS_URI is not set in .env. "
+                "Get it from MongoDB Atlas -> Database -> Connect -> Drivers"
+            )
+        _mongo_client = MongoClient(
+            settings.mongodb_atlas_uri,
+            tlsCAFile=certifi.where()
+        )
+    return _mongo_client
 
 
 # Backend
@@ -72,12 +86,7 @@ def _build_pinecone() -> VectorStore:
 def _build_mongodb() -> VectorStore:
     from langchain_mongodb import MongoDBAtlasVectorSearch
 
-    if not settings.mongodb_atlas_uri:
-        raise ValueError(
-            "MONGODB_ATLAS_URI is not set in .env. "
-            "Get it from MongoDB Atlas -> Database -> Connect -> Drivers"
-        )
-    collection = shared_mongo_client[settings.mongodb_db_name][settings.mongodb_collection_name]
+    collection = _get_mongo_client()[settings.mongodb_db_name][settings.mongodb_collection_name]
 
     return MongoDBAtlasVectorSearch(
         collection=collection,
@@ -207,7 +216,7 @@ def reset_store(provider: Optional[str] = None):
 
     elif provider == "mongodb":
         # Use the shared client with SSL configuration attached
-        shared_mongo_client[settings.mongodb_db_name][settings.mongodb_collection_name].drop()
+        _get_mongo_client()[settings.mongodb_db_name][settings.mongodb_collection_name].drop()
         logger.info(f"MongoDB collection '{settings.mongodb_collection_name}' dropped")
 
 
@@ -234,7 +243,7 @@ def count_chunks(provider: Optional[str] = None) -> int:
 
         elif provider == "mongodb":
             # Use the shared client with SSL configuration attached
-            return shared_mongo_client[settings.mongodb_db_name][settings.mongodb_collection_name].count_documents({})
+            return _get_mongo_client()[settings.mongodb_db_name][settings.mongodb_collection_name].count_documents({})
 
     except Exception as e:
         logger.warning(f"Could not count chunks for {provider}: {e}")

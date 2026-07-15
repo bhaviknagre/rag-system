@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     chroma_collection_name: str = "rag_documents"
     pinecone_api_key: str = ""
     pinecone_index_name: str = "rag-system-index"
-    mongodb_atlas_uri: str = "mongodb+srv://<bhavik>:<bhaviknagre143>@cluster0.lmijouj.mongodb.net/"
+    mongodb_atlas_uri: str = ""
     mongodb_db_name: str = "rag_system"
     mongodb_collection_name: str = "document_chunks"
     mongodb_vector_index_name: str = "vector_index"

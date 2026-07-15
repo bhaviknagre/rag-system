@@ -1,10 +1,10 @@
 site_name: RAG System
 site_description: Production-grade Retrieval-Augmented Generation pipeline
 site_author: RAG System Team
-site_url: https://bhaviknagre.github.io/rag-system/
+site_url: https://rag-documentation.github.io/rag-system/
 
-repo_name: your-username/rag-system
-repo_url: https://github.com/bhavikbagre/rag-system
+repo_name: bhaviknagre/rag-system
+repo_url: https://github.com/bhaviknagre/rag-system
 edit_uri: edit/main/docs/
 
 copyright: Copyright &copy; 2025 RAG System Project
@@ -81,7 +81,7 @@ extra:
     provider: mike
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/your-username/rag-system
+      link: https://github.com/bhaviknagre/rag-system
   analytics:
     feedback:
       title: Was this page helpful?
@@ -122,4 +122,3 @@ nav:
       - Quickstart: guides/quickstart.md
       - Chunking Strategies: guides/chunking.md
       - Security: guides/security.md
-  - Changelog: CHANGELOG.md
