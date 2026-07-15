@@ -11,13 +11,13 @@ with Docker Compose, monitored via Prometheus + Grafana, and data pipelines
 are versioned and reproducible via DVC.
 
 **Full documentation, including visual architecture and flow diagrams,
-is published at [rag-documentation.github.io/rag-system](https://rag-documentation.github.io/rag-system/).**
+is published at [rag-documentation.github.io/rag-system](https://bhaviknagre.github.io/rag-system/).**
 
 ---
 
 ## Architecture
 
-See [Architecture Diagrams](https://rag-documentation.github.io/rag-system/architecture/diagrams/)
+See [Architecture Diagrams](https://bhaviknagre.github.io/rag-system/architecture/diagrams/)
 for the full visual reference (system topology, ingestion/query sequence
 diagrams, monitoring flow, vector store factory, and Kubernetes topology).
 Summary:
