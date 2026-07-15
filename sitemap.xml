@@ -1,83 +1,83 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://your-username.github.io/rag-system/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/CHANGELOG/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/CHANGELOG/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/api/endpoints/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/api/endpoints/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/api/reference/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/api/reference/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/architecture/decisions/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/architecture/decisions/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/architecture/overview/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/architecture/overview/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/components/embeddings/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/components/embeddings/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/components/generation/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/components/generation/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/components/ingestion/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/components/ingestion/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/components/retrieval/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/components/retrieval/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/components/vectorstore/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/components/vectorstore/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/guides/chunking/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/guides/chunking/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/guides/quickstart/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/guides/quickstart/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/guides/security/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/guides/security/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/kubernetes/overview/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/kubernetes/overview/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/kubernetes/phases/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/kubernetes/phases/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/kubernetes/scaling/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/kubernetes/scaling/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/operations/deployment/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/operations/deployment/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/operations/monitoring/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/operations/monitoring/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
     <url>
-         <loc>https://your-username.github.io/rag-system/operations/runbook/</loc>
+         <loc>https://bhaviknagre.github.io/rag-system/operations/runbook/</loc>
          <lastmod>2026-07-15</lastmod>
     </url>
 </urlset>
