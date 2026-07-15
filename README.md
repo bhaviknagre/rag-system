@@ -60,7 +60,7 @@ Celery       → Flower (port 5555)
 | Config | pydantic-settings + .env | Type-safe environment config |
 
 Dependency versions are pinned in `requirements.txt` and audited with
-`pip-audit`; see the [Security guide](https://rag-documentation.github.io/rag-system/guides/security/)
+`pip-audit`; see the [Security guide](https://bhaviknagre.github.io/rag-system/guides/security/)
 for current status and any deliberately deferred items.
 
 ## Project Structure
@@ -509,7 +509,7 @@ Tracked metrics per run:
 
 The full stack runs on Kubernetes with auto-scaling, queue-based worker
 scaling, and path-based ingress routing — all on a local Minikube cluster.
-See [Kubernetes docs](https://rag-documentation.github.io/rag-system/kubernetes/overview/)
+See [Kubernetes docs](https://bhaviknagre.github.io/rag-system/kubernetes/overview/)
 for the full 7-phase build and topology diagram.
 
 ### Prerequisites
@@ -595,7 +595,7 @@ bash k8s/scripts/rollout.sh
 ## Documentation
 
 Full docs, including the visual architecture/flow diagrams, live at
-**[rag-documentation.github.io/rag-system](https://rag-documentation.github.io/rag-system/)**
+**[rag-documentation.github.io/rag-system](https://bhaviknagre.github.io/rag-system/)**
 and are built from the `docs/` folder with MkDocs Material. To preview locally:
 
 ```bash
