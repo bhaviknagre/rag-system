@@ -1,0 +1,125 @@
+site_name: RAG System
+site_description: Production-grade Retrieval-Augmented Generation pipeline
+site_author: RAG System Team
+site_url: https://bhaviknagre.github.io/rag-system/
+
+repo_name: your-username/rag-system
+repo_url: https://github.com/bhavikbagre/rag-system
+edit_uri: edit/main/docs/
+
+copyright: Copyright &copy; 2025 RAG System Project
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - search.highlight
+    - search.share
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - minify:
+      minify_html: true
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - attr_list
+  - md_in_html
+  - def_list
+
+extra:
+  version:
+    provider: mike
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/your-username/rag-system
+  analytics:
+    feedback:
+      title: Was this page helpful?
+      ratings:
+        - icon: material/emoticon-happy-outline
+          name: This page was helpful
+          data: 1
+          note: Thanks for your feedback!
+        - icon: material/emoticon-sad-outline
+          name: This page could be improved
+          data: 0
+          note: Thanks for letting us know!
+
+nav:
+  - Home: index.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Diagrams: architecture/diagrams.md
+      - Decision Records: architecture/decisions.md
+  - API Reference:
+      - Endpoints: api/endpoints.md
+      - Schemas: api/reference.md
+  - Components:
+      - Document Ingestion: components/ingestion.md
+      - Embeddings: components/embeddings.md
+      - Vector Store: components/vectorstore.md
+      - Retrieval: components/retrieval.md
+      - Generation: components/generation.md
+  - Kubernetes:
+      - Overview: kubernetes/overview.md
+      - 7-Phase Build: kubernetes/phases.md
+      - Auto-Scaling: kubernetes/scaling.md
+  - Operations:
+      - Deployment: operations/deployment.md
+      - Monitoring: operations/monitoring.md
+      - Runbook: operations/runbook.md
+  - Guides:
+      - Quickstart: guides/quickstart.md
+      - Chunking Strategies: guides/chunking.md
+      - Security: guides/security.md
+  - Changelog: CHANGELOG.md

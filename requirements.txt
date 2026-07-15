@@ -49,3 +49,7 @@ pathspec==0.11.2
 tqdm==4.67.1
 pyyaml==6.0.2
 python-multipart==0.0.20
+
+# ── Docs ─────────────────────────────────────
+mkdocs-material==9.7.6
+mkdocs-minify-plugin==0.8.0
