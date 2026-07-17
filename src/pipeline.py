@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 settings = Settings()
 
 
-# Context builder
 def _build_context(retrieved_chunks: list) -> str:
     if not retrieved_chunks:
         return ""
@@ -33,8 +32,12 @@ def _build_context(retrieved_chunks: list) -> str:
     return "\n\n".join(parts)
 
 
-# Ingest
-def ingest(raw_dir: str = "data/raw",provider: Optional[str] = None,strategy: Optional[str] = None,reset: bool = False) -> Dict:
+def ingest(
+    raw_dir: str = "data/raw",
+    provider: Optional[str] = None,
+    strategy: Optional[str] = None,
+    reset: bool = False,
+) -> Dict:
     provider = provider or settings.vector_db_provider
     strategy = strategy or settings.chunking_strategy
 
@@ -44,7 +47,6 @@ def ingest(raw_dir: str = "data/raw",provider: Optional[str] = None,strategy: Op
         logger.info(f"Resetting store: {provider}")
         reset_store(provider)
 
-    # Step 1: Load
     raw_docs = load_documents_from_directory(raw_dir)
     if not raw_docs:
         return {
@@ -57,10 +59,7 @@ def ingest(raw_dir: str = "data/raw",provider: Optional[str] = None,strategy: Op
             "total_chunks_in_store": count_chunks(provider)
         }
 
-    # Step 2: Chunk
     chunks = chunk_documents(raw_docs, strategy=strategy)
-
-    # Step 3: Embed + store
     added = add_chunks_to_store(chunks, provider=provider)
 
     summary = {
@@ -77,9 +76,11 @@ def ingest(raw_dir: str = "data/raw",provider: Optional[str] = None,strategy: Op
     return summary
 
 
-
-# Ask
-def ask(question: str,provider: Optional[str] = None,top_k: Optional[int] = None) -> Dict:
+def ask(
+    question: str,
+    provider: Optional[str] = None,
+    top_k: Optional[int] = None,
+) -> Dict:
     if not question or not question.strip():
         raise ValueError("Question cannot be empty")
 
@@ -88,17 +89,12 @@ def ask(question: str,provider: Optional[str] = None,top_k: Optional[int] = None
 
     logger.info(f"Query received | provider={provider} | question={question[:60]}")
 
-    # Step 1: Retrieve
     retrieved = query_store(
         query=question,
         top_k=top_k,
         provider=provider
     )
-
-    # Step 2: Build context
     context = _build_context(retrieved)
-
-    # Step 3: Generate
     generator = get_generator()
     answer = generator.generate(question=question, context=context)
 

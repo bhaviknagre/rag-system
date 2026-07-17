@@ -1,6 +1,6 @@
 services:
 
-  # ── Redis ────────────────────────────────────
+  # Redis
   redis:
     image: redis:7.2-alpine
     container_name: rag-redis
@@ -25,7 +25,7 @@ services:
         limits:
           memory: 600m
 
-  # ── Redis exporter (for Prometheus) ──────────
+  # Redis exporter (for Prometheus)
   redis-exporter:
     image: oliver006/redis_exporter:latest
     container_name: rag-redis-exporter
@@ -37,7 +37,7 @@ services:
       - redis
     restart: unless-stopped
 
-  # ── Ollama ────────────────────────────────────
+  # Ollama
   ollama:
     image: ollama/ollama:latest
     container_name: rag-ollama
@@ -47,7 +47,7 @@ services:
       - ollama_data:/root/.ollama
     restart: unless-stopped
 
-  # ── One-shot model pull ───────────────────────
+  # One-shot model pull
   ollama-pull:
     image: ollama/ollama:latest
     container_name: rag-ollama-pull
@@ -61,7 +61,7 @@ services:
       - ollama_data:/root/.ollama
     restart: "no"
 
-  # ── FastAPI (scalable — run multiple with --scale) ──
+  # FastAPI (scalable — run multiple with --scale)
   rag-api:
     build:
       context: .
@@ -96,7 +96,7 @@ services:
           memory: 2g
           cpus: "1.5"
 
-  # ── Celery worker (scalable) ──────────────────
+  # Celery worker (scalable)
   rag-worker:
     build:
       context: .
@@ -132,7 +132,7 @@ services:
           memory: 2g
           cpus: "1.5"
 
-  # ── Flower ────────────────────────────────────
+  # Flower
   flower:
     build:
       context: .
@@ -152,7 +152,7 @@ services:
       - rag-worker
     restart: unless-stopped
 
-  # ── Nginx load balancer ───────────────────────
+  # Nginx load balancer
   nginx:
     build:
       context: ./nginx
@@ -170,7 +170,7 @@ services:
       retries: 3
 
 
-  # ── Nginx exporter ────────────────────────────
+  # Nginx exporter
   nginx-exporter:
     image: nginx/nginx-prometheus-exporter:latest
     container_name: rag-nginx-exporter
@@ -181,7 +181,7 @@ services:
       - nginx
     restart: unless-stopped
 
-  # ── Prometheus ────────────────────────────────
+  # Prometheus
   prometheus:
     image: prom/prometheus:v2.55.1
     container_name: rag-prometheus
@@ -197,14 +197,14 @@ services:
       - "--web.enable-lifecycle"
     restart: unless-stopped
 
-  # ── Grafana ───────────────────────────────────
+  # Grafana
   grafana:
     image: grafana/grafana:11.4.0
     container_name: rag-grafana
     ports:
       - "3000:3000"
     environment:
-      # 🔧 REPLACE: change these credentials before any real deployment
+      # TODO: change these credentials before any real deployment
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=ragadmin
       - GF_USERS_ALLOW_SIGN_UP=false

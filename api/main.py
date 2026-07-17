@@ -35,7 +35,7 @@ from src.monitoring.metrics import (
     record_ingest_completed
 )
 
-# ── Structured JSON logging ───────────────────
+# Structured JSON logging
 logging.basicConfig(
     level=logging.INFO,
     format='{"time":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","msg":"%(message)s"}'
@@ -43,7 +43,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# ── Lifespan ──────────────────────────────────
+# Lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(json.dumps({"event": "startup", "version": "2.1.0"}))
@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
     logger.info(json.dumps({"event": "shutdown"}))
 
 
-# ── App ───────────────────────────────────────
+# App
 app = FastAPI(
     title="RAG System API",
     description=(
@@ -67,7 +67,7 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# ── Middleware (order matters — outermost runs first) ──
+# Middleware (order matters — outermost runs first)
 app.add_middleware(ProcessTimeHeaderMiddleware)
 app.add_middleware(TimingMiddleware)
 app.add_middleware(RequestIDMiddleware)
@@ -78,7 +78,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Prometheus auto-instrumentation ──────────
+# Prometheus auto-instrumentation
 # Instruments all routes automatically, exposes /metrics
 Instrumentator(
     should_group_status_codes=True,
@@ -87,7 +87,7 @@ Instrumentator(
 ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 
-# ── Health ────────────────────────────────────
+# Health
 
 @app.get("/health", response_model=HealthResponse)
 def health_check():
@@ -117,7 +117,7 @@ def health_check():
         chunk_counts=chunk_counts
     )
 
-# ── Ingest ────────────────────────────────────
+# Ingest
 
 @app.post("/ingest", response_model=JobSubmittedResponse, status_code=202)
 def ingest_documents(request: IngestRequest):
@@ -152,7 +152,7 @@ def ingest_documents(request: IngestRequest):
         raise HTTPException(status_code=500, detail=f"Failed to queue job: {e}")
 
 
-# ── Job status ────────────────────────────────
+# Job status
 
 @app.get("/jobs/{job_id}", response_model=JobStatusResponse)
 def get_job_status(job_id: str):
@@ -231,7 +231,7 @@ def cancel_job(job_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to cancel: {e}")
 
 
-# ── Ask ───────────────────────────────────────
+# Ask
 
 @app.post("/ask", response_model=AskResponse)
 def ask_question(request: AskRequest):
@@ -269,7 +269,7 @@ def ask_question(request: AskRequest):
         raise HTTPException(status_code=500, detail=f"Failed: {e}")
 
 
-# ── Info ──────────────────────────────────────
+# Info
 
 @app.get("/providers")
 def list_providers():
@@ -304,10 +304,10 @@ def root():
         "endpoints": ["/health", "/ingest", "/jobs/{job_id}", "/ask", "/providers", "/strategies"]
     }
 
-# ── Upload ────────────────────────────────────
+# Upload
 
 ALLOWED_EXTENSIONS = {".pdf", ".txt", ".docx"}
-MAX_FILE_SIZE = 100 * 1024 * 1024  
+MAX_FILE_SIZE = 100 * 1024 * 1024
 
 
 @app.post("/upload")
@@ -324,7 +324,7 @@ async def upload_document(
             status_code=400,
             detail=f"Unsupported file type '{suffix}'. Allowed: {ALLOWED_EXTENSIONS}"
         )
-    
+
     save_dir = Path("data/raw")
     save_dir.mkdir(parents=True, exist_ok=True)
     save_path = save_dir / file.filename

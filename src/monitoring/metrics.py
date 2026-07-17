@@ -1,7 +1,7 @@
 from prometheus_client import Counter, Histogram, Gauge, Info
 import time
 
-# ── Ingestion metrics ─────────────────────────
+# Ingestion metrics
 INGEST_JOBS_SUBMITTED = Counter(
     "rag_ingest_jobs_submitted_total",
     "Total ingestion jobs submitted",
@@ -11,7 +11,7 @@ INGEST_JOBS_SUBMITTED = Counter(
 INGEST_JOBS_COMPLETED = Counter(
     "rag_ingest_jobs_completed_total",
     "Total ingestion jobs completed",
-    ["provider", "strategy", "status"]  
+    ["provider", "strategy", "status"]
 )
 
 INGEST_CHUNKS_CREATED = Counter(
@@ -20,7 +20,7 @@ INGEST_CHUNKS_CREATED = Counter(
     ["provider", "strategy"]
 )
 
-# ── Retrieval metrics ─────────────────────────
+# Retrieval metrics
 ASK_REQUESTS = Counter(
     "rag_ask_requests_total",
     "Total /ask requests",
@@ -47,14 +47,14 @@ EMPTY_RETRIEVALS = Counter(
     ["provider"]
 )
 
-# ── Vector store metrics ──────────────────────
+# Vector store metrics
 VECTOR_STORE_CHUNKS = Gauge(
     "rag_vector_store_chunks",
     "Current number of chunks in each vector store",
     ["provider"]
 )
 
-# ── LLM metrics ───────────────────────────────
+# LLM metrics
 LLM_LATENCY = Histogram(
     "rag_llm_generation_latency_seconds",
     "Time spent waiting for LLM to generate answer",
@@ -66,7 +66,7 @@ LLM_ERRORS = Counter(
     "Total LLM generation errors (connection refused, timeout, etc.)"
 )
 
-# ── System info ───────────────────────────────
+# System info
 SYSTEM_INFO = Info(
     "rag_system",
     "Static info about the RAG system configuration"

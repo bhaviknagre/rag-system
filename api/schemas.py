@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Literal, Any
 
 
-# ── Ingest ───────────────────────────────────
+# Ingest
 
 class IngestRequest(BaseModel):
     provider: Optional[Literal["chroma", "pinecone", "mongodb"]] = Field(
@@ -29,7 +29,7 @@ class IngestResponse(BaseModel):
     total_chunks_in_store: int = 0
 
 
-# ── Ask ──────────────────────────────────────
+# Ask
 
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1)
@@ -51,7 +51,7 @@ class AskResponse(BaseModel):
     sources: List[SourceItem]
 
 
-# ── Health ───────────────────────────────────
+# Health
 
 class HealthResponse(BaseModel):
     status: str
@@ -62,7 +62,7 @@ class HealthResponse(BaseModel):
     chunk_counts: dict
 
 
-# ── Jobs (Celery background tasks) ───────────
+# Jobs (Celery background tasks)
 
 class JobSubmittedResponse(BaseModel):
     job_id: str = Field(..., description="Use this ID to poll /jobs/{job_id}")

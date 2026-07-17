@@ -45,7 +45,7 @@ instructed not to use knowledge outside the provided context.
 
 | Model | Params | RAM | CPU Latency | Quality | Cost |
 |---|---|---|---|---|---|
-| llama3.2:1b ✅ | 1B | ~800MB | 5-30s | Acceptable | $0 |
+| llama3.2:1b (default) | 1B | ~800MB | 5-30s | Acceptable | $0 |
 | llama3.2:3b | 3B | ~2GB | 15-60s | Good | $0 |
 | mistral:7b | 7B | ~4GB | 30-90s | Very good | $0 |
 | GPT-4o-mini | ~8B | API | 1-3s | Excellent | $0.15/1M tokens |

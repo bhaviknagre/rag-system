@@ -43,7 +43,7 @@ spec:
       http:
         paths:
 
-          # ── RAG API (all routes) ──────────────────
+          # RAG API (all routes)
           - path: /
             pathType: Prefix
             backend:
@@ -74,7 +74,7 @@ spec:
       http:
         paths:
 
-          # ── Grafana ──────────────────────────────
+          # Grafana
           - path: /grafana(/|$)(.*)
             pathType: ImplementationSpecific
             backend:
@@ -83,7 +83,7 @@ spec:
                 port:
                   number: 80
 
-          # ── Prometheus ───────────────────────────
+          # Prometheus
           - path: /prometheus(/|$)(.*)
             pathType: ImplementationSpecific
             backend:
@@ -111,7 +111,7 @@ spec:
       http:
         paths:
 
-          # ── Flower ───────────────────────────────
+          # Flower
           - path: /flower(/|$)(.*)
             pathType: ImplementationSpecific
             backend:

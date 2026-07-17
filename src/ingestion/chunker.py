@@ -63,8 +63,8 @@ def semantic_chunk(documents: List[Document]) -> List[Document]:
     embeddings = get_embeddings()
     splitter = SemanticChunker(
         embeddings=embeddings,
-        breakpoint_threshold_type="percentile",  
-        breakpoint_threshold_amount=90           
+        breakpoint_threshold_type="percentile",
+        breakpoint_threshold_amount=90
     )
     return splitter.split_documents(documents)
 

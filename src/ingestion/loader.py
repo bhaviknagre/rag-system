@@ -26,12 +26,12 @@ def load_document(file_path: Path) -> str:
     if suffix == ".pdf":
         return load_pdf(file_path)
     elif suffix == ".docx":
-        return load_docx(file_path) 
+        return load_docx(file_path)
     elif suffix == ".txt":
         return load_text(file_path)
     else:
         raise ValueError(f"Unsupported file type: {suffix}. Supported types are: {SUPPORTED_EXTENSIONS}")
-    
+
 def load_documents_from_directory(raw_dir: str = "data/raw") -> List[Dict]:
     raw_path = Path(raw_dir)
     document = []
@@ -57,4 +57,3 @@ if __name__ == "__main__":
     print(f"Loaded {len(documents)} documents.")
     for doc in documents:
         print(f"Document ID: {doc['doc_id']}, Source: {doc['source']}, Text Length: {len(doc['text'])} characters")
-        

@@ -43,7 +43,7 @@ spec:
                 sleep 2
               done
               echo "Pulling llama3.2:1b..."
-              # 🔧 Change this if you want a different model
+              # TODO: change this if you want a different model
               ollama pull llama3.2:1b
               echo "Model pulled successfully"
               kill $SERVER_PID

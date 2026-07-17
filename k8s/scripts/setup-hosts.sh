@@ -1,10 +1,8 @@
 #!/bin/bash
-# ─────────────────────────────────────────────
 # Adds rag.local to /etc/hosts pointing to
 # Minikube's IP so the browser can resolve it.
 # Run once after minikube start.
 # Usage: sudo bash k8s/scripts/setup-hosts.sh
-# ─────────────────────────────────────────────
 
 set -e
 

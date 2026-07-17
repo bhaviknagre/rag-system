@@ -53,7 +53,7 @@ def _build_chroma() -> VectorStore:
 
 def _build_pinecone() -> VectorStore:
     from langchain_pinecone import PineconeVectorStore
-    from pinecone import Pinecone, ServerlessSpec 
+    from pinecone import Pinecone, ServerlessSpec
     import time
 
     if not settings.pinecone_api_key:
@@ -61,15 +61,15 @@ def _build_pinecone() -> VectorStore:
 
     pc = Pinecone(api_key=settings.pinecone_api_key)
     existing_indexes = [idx.name for idx in pc.list_indexes()]
-    
+
     index_name = settings.pinecone_index_name
     if index_name not in existing_indexes:
         logger.info(f"Index '{index_name}' not found. Creating it now...")
         pc.create_index(
             name=index_name,
-            dimension=384, 
+            dimension=384,
             metric="cosine",
-            spec=ServerlessSpec(cloud="aws", region="us-east-1") 
+            spec=ServerlessSpec(cloud="aws", region="us-east-1")
         )
         while not pc.describe_index(index_name).status['ready']:
             time.sleep(1)
@@ -197,9 +197,9 @@ def reset_store(provider: Optional[str] = None):
 
     elif provider == "pinecone":
         from pinecone import Pinecone
-        
+
         pc = Pinecone(api_key=settings.pinecone_api_key)
-        
+
         existing_indexes = [idx.name for idx in pc.list_indexes()]
         if settings.pinecone_index_name in existing_indexes:
             index = pc.Index(settings.pinecone_index_name)

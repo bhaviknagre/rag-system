@@ -70,7 +70,7 @@ window_context = sentences 1,2,4,5
 
 | | Recursive | Semantic | Sentence Window |
 |---|---|---|---|
-| Speed | ⚡ Fast | 🐢 Slow | ⚡ Medium |
+| Speed | Fast | Slow | Medium |
 | Chunks per 500-word doc | 30-50 | 20-35 | 100-300 |
 | Context preservation | Good (overlap) | Excellent | Good (window) |
 | Best for | General | Research papers | Q&A |

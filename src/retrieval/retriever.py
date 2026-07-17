@@ -37,8 +37,7 @@ if __name__ == "__main__":
     print(f"Retrieved {len(results)} chunks:\n")
     for r in results:
         print(f"Doc ID: {r['doc_id']}, Source: {r['source']}, Distance: {r['distance']}\nText: {r['text']}\n")
-    
+
     print(f"\nRetrieving context for the query:\n")
     context = retriever.retrieve_context(query, top_k=3)
-    print(context)  
-    
+    print(context)

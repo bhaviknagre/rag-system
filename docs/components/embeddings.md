@@ -34,7 +34,7 @@
 | CPU inference | ~50ms/batch | ~200ms/batch | ~200ms (network) |
 | MTEB score | 56.26 | 57.02 | 62.3 |
 | Cost | Free | Free | $0.02/1M tokens |
-| **Verdict** | **✅ Selected** | ❌ 2x slower | ❌ API dependency |
+| **Verdict** | **Selected** | 2x slower | API dependency |
 
 The quality difference between MiniLM and mpnet is marginal (0.76 MTEB points)
 but the speed difference is 4x. For a local RAG system, speed wins.

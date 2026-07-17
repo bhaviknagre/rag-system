@@ -43,7 +43,7 @@ spec:
 
       containers:
         - name: rag-api
-          # 🔧 REPLACE with your Docker Hub username if pushing to registry
+          # TODO: replace with your Docker Hub username if pushing to registry
           # For Minikube local build: minikube image build -t rag-api:latest .
           image: rag-api:latest
           imagePullPolicy: Never    # use local Minikube image

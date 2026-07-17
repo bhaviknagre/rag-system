@@ -18,9 +18,9 @@ as a thin adapter layer.
 
 **Consequences:**
 
-- ✅ Single `Embeddings` object passed to all three backends unchanged
-- ✅ `add_documents()` and `similarity_search()` work identically across backends
-- ⚠️ LangChain dependency tree is large (~15 sub-packages)
+- Single `Embeddings` object passed to all three backends unchanged
+- `add_documents()` and `similarity_search()` work identically across backends
+- Caveat: LangChain dependency tree is large (~15 sub-packages)
 
 ---
 
@@ -37,10 +37,10 @@ retries, result persistence, or monitoring. Celery gives all three plus Flower.
 
 **Consequences:**
 
-- ✅ `POST /ingest` returns in <100ms always
-- ✅ Jobs survive API restarts (persisted in Redis)
-- ✅ Retry with exponential backoff (max 2 retries)
-- ⚠️ Two extra services to operate (Redis + Worker)
+- `POST /ingest` returns in <100ms always
+- Jobs survive API restarts (persisted in Redis)
+- Retry with exponential backoff (max 2 retries)
+- Caveat: Two extra services to operate (Redis + Worker)
 
 ---
 
@@ -56,9 +56,9 @@ want to avoid a new vendor.
 
 **Consequences:**
 
-- ✅ No vendor lock-in
-- ✅ Same API regardless of backend
-- ⚠️ Three codepaths to maintain
+- No vendor lock-in
+- Same API regardless of backend
+- Caveat: Three codepaths to maintain
 
 ---
 
@@ -73,10 +73,10 @@ and requires internet + API key management.
 
 **Consequences:**
 
-- ✅ $0 LLM inference cost
-- ✅ No API key required
-- ⚠️ 1B param model — lower quality than GPT-4o-mini
-- ⚠️ Generation latency: 5-30s on CPU
+- $0 LLM inference cost
+- No API key required
+- Caveat: 1B param model — lower quality than GPT-4o-mini
+- Caveat: Generation latency: 5-30s on CPU
 
 ---
 
@@ -94,6 +94,6 @@ Also needed async API ingestion. These are different concerns.
 
 **Consequences:**
 
-- ✅ `dvc repro` is deterministic and versioned
-- ✅ `POST /ingest` is non-blocking and retryable
-- ⚠️ Two ingestion paths to explain
+- `dvc repro` is deterministic and versioned
+- `POST /ingest` is non-blocking and retryable
+- Caveat: Two ingestion paths to explain

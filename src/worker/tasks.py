@@ -1,6 +1,6 @@
 import logging
 from celery import states
-from celery.exceptions import Ignore, SoftTimeLimitExceeded 
+from celery.exceptions import Ignore, SoftTimeLimitExceeded
 from src.worker.celery_app import celery_app
 from src.pipeline import ingest
 
