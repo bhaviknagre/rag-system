@@ -18,8 +18,8 @@ CHUNKING_STRATEGY=recursive
 
 **Config:**
 ```env
-CHUNK_SIZE=500      # words per chunk
-CHUNK_OVERLAP=50    # overlap between chunks
+CHUNK_SIZE=800      # words per chunk
+CHUNK_OVERLAP=150   # overlap between chunks
 ```
 
 ---

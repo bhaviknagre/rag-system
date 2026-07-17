@@ -9,7 +9,7 @@ from src.config import settings
 from src.embedings.embedder import get_embeddings
 import re
 
-#Helper function
+
 def _dicts_to_documents(raw_docs: List[Dict]) -> List[Document]:
     return [
         Document(

@@ -8,11 +8,14 @@
     A separate `Retriever` class exists in `src/retrieval/retriever.py` but
     is not imported by `pipeline.py` or `api/main.py` — the only reference
     to it left in the codebase is `generator.py`'s standalone `__main__`
-    test block. It also calls a `.query()` method that the LangChain
-    `VectorStore` interface doesn't expose (the real method is
+    test block. It previously called a `.query()` method that the
+    LangChain `VectorStore` interface doesn't expose (the real method is
     `similarity_search_with_relevance_scores`), so running it directly
-    raises `AttributeError`. It's dead code, not a hidden alternate path —
-    documented here so it isn't mistaken for the real retrieval layer.
+    raised `AttributeError`. This has been fixed — `Retriever.retrieve()`
+    now calls `query_store()` from `src/vectorstore/store.py`, the same
+    function the live `/ask` path uses — but it's still not wired into
+    `pipeline.py`/`api/main.py`, so it remains a standalone utility rather
+    than an alternate request path.
 
 ---
 
@@ -102,5 +105,5 @@ Another relevant chunk...
 ## Config
 
 ```env
-TOP_K=4            # chunks retrieved per query (1-20 via API)
+TOP_K=5            # chunks retrieved per query (1-20 via API)
 ```

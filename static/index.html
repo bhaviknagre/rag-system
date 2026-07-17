@@ -316,7 +316,9 @@
     <h1>🤖 RAG System</h1>
   </div>
   <span><span class="status-dot"></span>v2.2.0 — Production</span>
-  <div class="links-bar" style="margin-top:0; margin-left: auto;">
+  <div class="links-bar" style="margin-top:0; margin-left: auto; align-items:center;">
+    <input type="password" id="api-key-input" placeholder="X-API-Key (if required)"
+      style="width:220px; padding:6px 10px; font-size:12px;"/>
     <a href="/docs" target="_blank" class="ext-link">📄 Swagger</a>
     <a href="http://localhost:5555" target="_blank" class="ext-link">🌸 Flower</a>
     <a href="http://localhost:9090" target="_blank" class="ext-link">📊 Prometheus</a>
@@ -446,7 +448,8 @@
         <label>Top K chunks</label>
         <select id="ask-topk">
           <option value="2">2</option>
-          <option value="4" selected>4</option>
+          <option value="4">4</option>
+          <option value="5" selected>5</option>
           <option value="6">6</option>
           <option value="8">8</option>
         </select>
@@ -476,6 +479,21 @@
 
 <script>
   const API = '';   // empty = same origin (goes through Nginx)
+
+  // ── API key ───────────────────────────────
+  // Sent as X-API-Key on protected endpoints (/ingest, /upload, /ask, /jobs).
+  // Only relevant if the backend has API_KEY set — harmless no-op otherwise.
+
+  const apiKeyInput = document.getElementById('api-key-input');
+  apiKeyInput.value = localStorage.getItem('rag_api_key') || '';
+  apiKeyInput.addEventListener('input', () => {
+    localStorage.setItem('rag_api_key', apiKeyInput.value);
+  });
+
+  function authHeaders(extra = {}) {
+    const key = apiKeyInput.value.trim();
+    return key ? { ...extra, 'X-API-Key': key } : extra;
+  }
 
   // ── Helpers ───────────────────────────────
 
@@ -539,7 +557,7 @@
     let dots = 0;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${API}/jobs/${jobId}`);
+        const res = await fetch(`${API}/jobs/${jobId}`, { headers: authHeaders() });
         const data = await res.json();
         dots = (dots + 1) % 4;
         const dot = '.'.repeat(dots + 1);
@@ -626,7 +644,7 @@
     formData.append('strategy', strategy);
 
     try {
-      const res = await fetch(`${API}/upload`, { method: 'POST', body: formData });
+      const res = await fetch(`${API}/upload`, { method: 'POST', headers: authHeaders(), body: formData });
       const data = await res.json();
 
       if (!res.ok) {
@@ -668,7 +686,7 @@
     try {
       const res = await fetch(`${API}/ingest`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ provider, strategy, reset })
       });
       const data = await res.json();
@@ -721,7 +739,7 @@
     try {
       const res = await fetch(`${API}/ask`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ question, provider, top_k })
       });
       const data = await res.json();

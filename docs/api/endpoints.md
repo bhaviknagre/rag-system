@@ -4,8 +4,22 @@ Base URL: `http://localhost` (via Nginx) or `http://localhost:8000` (direct)
 
 ## Authentication
 
-No authentication currently implemented. See [Security Guide](../guides/security.md)
-for adding JWT middleware.
+`POST /ingest`, `POST /upload`, `POST /ask`, `GET /jobs/{job_id}`, and
+`DELETE /jobs/{job_id}/cancel` require an `X-API-Key` header matching the
+`API_KEY` environment variable:
+
+```bash
+curl -X POST http://localhost/ask \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What is this document about?"}'
+```
+
+Missing or incorrect key returns `401 Unauthorized`. If `API_KEY` is unset,
+auth is skipped (local/dev convenience) and a warning is logged once at
+first request — see [Security Guide](../guides/security.md). `/health`,
+`/providers`, `/strategies`, `/metrics`, and the web UI itself are not
+gated.
 
 ---
 
@@ -101,7 +115,7 @@ Retrieve context and generate a grounded answer.
 {
   "question": "What is this document about?",
   "provider": "chroma",
-  "top_k": 4
+  "top_k": 5
 }
 ```
 

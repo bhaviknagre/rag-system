@@ -1,7 +1,3 @@
-# ClusterIP service for internal pod-to-pod communication.
-# Ingress (Phase 7) will route external traffic here.
-# K8s automatically load balances across all healthy rag-api pods.
-
 apiVersion: v1
 kind: Service
 metadata:

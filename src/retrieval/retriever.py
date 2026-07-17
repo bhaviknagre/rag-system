@@ -1,18 +1,18 @@
-from typing import List, Dict
-from src.vectorstore.store import get_vector_store
+from typing import List, Dict, Optional
+from src.vectorstore.store import query_store
 from src.config import settings
 
 class Retriever:
-    def __init__(self):
-        self.vector_store = get_vector_store()
+    def __init__(self, provider: Optional[str] = None):
+        self.provider = provider
 
     def retrieve(self, query: str, top_k: int | None = None) -> List[Dict]:
         top_k = top_k or settings.top_k
         if not query or not query.strip():
             raise ValueError("Query cannot be empty.")
-        results = self.vector_store.query(query, top_k)
+        results = query_store(query, top_k=top_k, provider=self.provider)
         return results
-    def retrieve_context(self, query: str, top_k: int | None) -> str:
+    def retrieve_context(self, query: str, top_k: int | None = None) -> str:
         result = self.retrieve(query, top_k=top_k)
         if not result:
             return ""
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     results = retriever.retrieve(query, top_k=3)
     print(f"Retrieved {len(results)} chunks:\n")
     for r in results:
-        print(f"Doc ID: {r['doc_id']}, Source: {r['source']}, Distance: {r['distance']}\nText: {r['text']}\n")
+        print(f"Doc ID: {r['doc_id']}, Source: {r['source']}, Score: {r['score']}\nText: {r['text']}\n")
 
     print(f"\nRetrieving context for the query:\n")
     context = retriever.retrieve_context(query, top_k=3)

@@ -1,6 +1,3 @@
-# Patches Grafana config to serve under /grafana subpath.
-# Without this Grafana's JS/CSS assets load from / and break.
-
 apiVersion: v1
 kind: ConfigMap
 metadata:

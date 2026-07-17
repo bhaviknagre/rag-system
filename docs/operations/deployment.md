@@ -108,9 +108,12 @@ bash k8s/scripts/rollout.sh
 | `OLLAMA_BASE_URL` | No | `http://localhost:11434` | Ollama server |
 | `LLM_MODEL` | No | `llama3.2:1b` | Ollama model name |
 | `EMBEDDING_MODEL` | No | `all-MiniLM-L6-v2` | HuggingFace model |
-| `CHUNK_SIZE` | No | `500` | Words per chunk |
-| `CHUNK_OVERLAP` | No | `50` | Overlap words |
-| `TOP_K` | No | `4` | Chunks per query |
+| `CHUNK_SIZE` | No | `800` | Words per chunk |
+| `CHUNK_OVERLAP` | No | `150` | Overlap words |
+| `TOP_K` | No | `5` | Chunks per query |
+| `API_KEY` | Recommended | — (auth disabled if unset) | Required as `X-API-Key` header on `/ingest`, `/upload`, `/ask`, `/jobs/*` |
 | `REDIS_URL` | No | `redis://localhost:6379/0` | Redis connection |
 | `CELERY_BROKER_URL` | No | `redis://localhost:6379/0` | Celery broker |
 | `CELERY_RESULT_BACKEND` | No | `redis://localhost:6379/0` | Job results |
+| `GRAFANA_ADMIN_USER` | No | `admin` | Grafana login (Docker Compose only) |
+| `GRAFANA_ADMIN_PASSWORD` | Recommended | `ragadmin` (dev-only) | Change before any real deployment |

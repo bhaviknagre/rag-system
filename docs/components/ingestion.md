@@ -15,8 +15,31 @@ chunks suitable for embedding.
 | Format | Library | Extraction Method | Known Limitation |
 |---|---|---|---|
 | `.txt` | Python built-in | `read_text()` UTF-8 | None — most reliable |
-| `.pdf` | pypdf 6.14.2 | `page.extract_text()` per page | Scanned PDFs return empty (no OCR) |
+| `.pdf` | pdfplumber (primary) + pypdf (fallback) | `page.extract_text(layout=True)` per page, falling back to pypdf if pdfplumber raises or returns nothing | Scanned PDFs return empty (no OCR) |
 | `.docx` | python-docx 1.1.2 | paragraph join | Tables inside DOCX ignored |
+
+### PDF extraction: pdfplumber-first, pypdf fallback
+
+`load_pdf()` tries `pdfplumber` first because its `layout=True` mode
+preserves horizontal spacing, which matters for resume-style PDFs with
+multi-column headers, icon-font contact rows (phone/email/GitHub/LinkedIn
+glyphs), and letter-spaced name headings. If pdfplumber raises or returns
+no usable text for any page, `pypdf` is used as a fallback.
+
+### Text cleaning (`clean_text`)
+
+Every extracted document (PDF, DOCX, and TXT) passes through
+`clean_text()` before chunking, which fixes the noise that most commonly
+corrupted names/headings in resumes:
+
+| Problem | Fix |
+|---|---|
+| `(cid:239)`-style tokens from unmapped icon-font glyphs | Stripped |
+| Private-Use-Area characters (icon fonts, U+E000–U+F8FF / U+F0000–U+10FFFD) | Stripped |
+| Ligatures (`ﬁ`, `ﬂ`, `ﬀ` …), smart quotes, en/em dashes | Normalized to plain ASCII equivalents |
+| Words split by a line-wrap hyphen (`Ter-\nraform`) | Rejoined (`Terraform`) |
+| Letter-spaced headings / repeated whitespace | Collapsed to single spaces |
+| Control characters from PDF encoders | Stripped (newline/tab kept) |
 
 ### Usage
 
@@ -61,8 +84,8 @@ and logged — one bad file does not abort the entire ingestion.
 
     **Config:**
 ```env
-    CHUNK_SIZE=500      # words per chunk
-    CHUNK_OVERLAP=50    # overlap words between chunks
+    CHUNK_SIZE=800      # words per chunk
+    CHUNK_OVERLAP=150   # overlap words between chunks
 ```
 
     **Output:** 30-50 chunks per average document. Deterministic.

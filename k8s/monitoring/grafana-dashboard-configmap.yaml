@@ -1,14 +1,10 @@
-# Grafana dashboard as a ConfigMap.
-# The grafana sidecar picks this up automatically and loads it.
-# Label: grafana_dashboard: "1" is the magic that triggers the sidecar.
-
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: rag-grafana-dashboard
   namespace: monitoring
   labels:
-    grafana_dashboard: "1"       # sidecar watches for this label
+    grafana_dashboard: "1"       
     app.kubernetes.io/name: rag-system
 data:
   rag-dashboard.json: |

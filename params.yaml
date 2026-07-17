@@ -1,7 +1,7 @@
 ingestion:
   raw_dir: data/raw
-  provider: chroma                # chroma | pinecone | mongodb
-  strategy: recursive             # recursive | semantic | sentence_window
+  provider: chroma                
+  strategy: recursive             
   reset: true
   chunk_size: 500
   chunk_overlap: 50

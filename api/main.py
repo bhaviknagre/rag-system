@@ -7,11 +7,12 @@ from fastapi.responses import FileResponse
 import shutil
 import os
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from api.auth import require_api_key
 from api.middleware import (
     RequestIDMiddleware,
     TimingMiddleware,
@@ -67,7 +68,7 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Middleware (order matters — outermost runs first)
+# Middleware
 app.add_middleware(ProcessTimeHeaderMiddleware)
 app.add_middleware(TimingMiddleware)
 app.add_middleware(RequestIDMiddleware)
@@ -79,7 +80,6 @@ app.add_middleware(
 )
 
 # Prometheus auto-instrumentation
-# Instruments all routes automatically, exposes /metrics
 Instrumentator(
     should_group_status_codes=True,
     should_ignore_untemplated=True,
@@ -93,13 +93,11 @@ Instrumentator(
 def health_check():
     chunk_counts = {}
 
-    # Chroma is local and fast — always check it
     try:
         chunk_counts["chroma"] = count_chunks("chroma")
     except Exception as e:
         chunk_counts["chroma"] = f"error: {str(e)[:40]}"
 
-    # Cloud backends — skip if they're slow, don't block health check
     for provider in ["pinecone", "mongodb"]:
         try:
             chunk_counts[provider] = count_chunks(provider)
@@ -119,7 +117,7 @@ def health_check():
 
 # Ingest
 
-@app.post("/ingest", response_model=JobSubmittedResponse, status_code=202)
+@app.post("/ingest", response_model=JobSubmittedResponse, status_code=202, dependencies=[Depends(require_api_key)])
 def ingest_documents(request: IngestRequest):
     provider = request.provider or settings.vector_db_provider
     strategy = request.strategy or settings.chunking_strategy
@@ -154,7 +152,7 @@ def ingest_documents(request: IngestRequest):
 
 # Job status
 
-@app.get("/jobs/{job_id}", response_model=JobStatusResponse)
+@app.get("/jobs/{job_id}", response_model=JobStatusResponse, dependencies=[Depends(require_api_key)])
 def get_job_status(job_id: str):
     try:
         task_result = celery_app.AsyncResult(job_id)
@@ -218,7 +216,7 @@ def get_job_status(job_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to fetch job status: {e}")
 
 
-@app.delete("/jobs/{job_id}/cancel")
+@app.delete("/jobs/{job_id}/cancel", dependencies=[Depends(require_api_key)])
 def cancel_job(job_id: str):
     try:
         celery_app.control.revoke(job_id, terminate=True, signal="SIGTERM")
@@ -233,7 +231,7 @@ def cancel_job(job_id: str):
 
 # Ask
 
-@app.post("/ask", response_model=AskResponse)
+@app.post("/ask", response_model=AskResponse, dependencies=[Depends(require_api_key)])
 def ask_question(request: AskRequest):
     provider = request.provider or settings.vector_db_provider
     start = time.time()
@@ -310,14 +308,13 @@ ALLOWED_EXTENSIONS = {".pdf", ".txt", ".docx"}
 MAX_FILE_SIZE = 100 * 1024 * 1024
 
 
-@app.post("/upload")
+@app.post("/upload", dependencies=[Depends(require_api_key)])
 async def upload_document(
     file: UploadFile = File(...),
     ingest_immediately: bool = Form(default=True),
     provider: Optional[str] = Form(default=None),
     strategy: Optional[str] = Form(default=None),
 ):
-    # Validate extension
     suffix = Path(file.filename).suffix.lower()
     if suffix not in ALLOWED_EXTENSIONS:
         raise HTTPException(

@@ -37,7 +37,7 @@ class AskRequest(BaseModel):
 |---|---|---|---|
 | `question` | string | required | Must be non-empty |
 | `provider` | string | `VECTOR_DB_PROVIDER` env | Backend to query |
-| `top_k` | integer | `TOP_K` env (4) | Chunks to retrieve (1-20) |
+| `top_k` | integer | `TOP_K` env (5) | Chunks to retrieve (1-20) |
 
 ---
 
@@ -152,6 +152,7 @@ Returned by `GET /jobs/{job_id}`.
 | `202 Accepted` | Job queued | `POST /ingest`, `POST /upload` |
 | `400 Bad Request` | Validation error | Empty question, bad provider |
 | `422 Unprocessable Entity` | Schema error | Missing required field, wrong type |
+| `401 Unauthorized` | Missing/invalid API key | `X-API-Key` header absent or wrong, and `API_KEY` is set on the server |
 | `429 Too Many Requests` | Rate limited | Nginx rate limit exceeded |
 | `500 Internal Server Error` | Server error | LLM unavailable, vector store error |
 

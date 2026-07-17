@@ -1,9 +1,4 @@
 #!/bin/bash
-# Build Docker images directly inside Minikube's
-# Docker daemon so pods can use them without
-# pushing to a registry.
-# Usage: bash k8s/scripts/build-images.sh
-
 set -e
 
 GREEN='\033[0;32m'

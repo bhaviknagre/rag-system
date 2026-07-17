@@ -222,6 +222,7 @@ docker compose up --build -d
 bash scripts/healthcheck.sh
 
 # 5. Ingest documents (returns job_id immediately)
+# Add -H "X-API-Key: $API_KEY" to every call below if API_KEY is set in .env
 curl -X POST http://localhost/ingest \
   -H "Content-Type: application/json" \
   -d '{"provider": "chroma", "strategy": "recursive", "reset": true}'
@@ -279,6 +280,24 @@ least-connections strategy. No config change needed.
 | GET | `/redoc` | ReDoc UI |
 | GET | `/rag-system` | Web UI (drag-and-drop upload + Q&A) |
 
+### Authentication
+
+`/ingest`, `/upload`, `/ask`, `/jobs/{job_id}` (GET & DELETE) require an
+`X-API-Key` header matching the `API_KEY` env var:
+
+```bash
+curl -X POST http://localhost/ask \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What is this document about?"}'
+```
+
+If `API_KEY` is unset, auth is skipped (dev convenience) and a warning is
+logged once — **set `API_KEY` before exposing this beyond a trusted
+network.** `/health`, `/providers`, `/strategies`, `/metrics`, and the web
+UI itself are not gated. The web UI (`/rag-system`) has an API-key field
+in the header that persists to `localStorage` and is sent automatically.
+
 ### POST /ingest
 Returns immediately with `job_id`. Ingestion runs in background via Celery.
 
@@ -330,7 +349,7 @@ Poll until `status` is `success` or `failed`.
 {
   "question": "What are the main topics in this document?",
   "provider": "chroma",
-  "top_k": 4
+  "top_k": 5
 }
 
 // Response
@@ -422,13 +441,13 @@ Tracked metrics per run:
 
 | Service | URL | Credentials |
 |---|---|---|
-| Grafana | http://localhost:3000 | admin / ragadmin |
+| Grafana | http://localhost:3000 | `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` from `.env` |
 | Prometheus | http://localhost:9090 | — |
 | Flower | http://localhost:5555 | — |
 
-> Change the Grafana admin password (`GF_SECURITY_ADMIN_PASSWORD` in
-> `docker-compose.yml`) before any real deployment — `ragadmin` is a
-> local-dev default only.
+> Set `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` in `.env` before any
+> real deployment — `docker-compose.yml` falls back to `admin` / `ragadmin`
+> only if they're unset, and that fallback is local-dev only.
 
 ### Prometheus metrics (custom)
 
@@ -462,6 +481,7 @@ Tracked metrics per run:
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
+| `API_KEY` | Recommended | — (auth disabled if unset) | Required as `X-API-Key` header on `/ingest`, `/upload`, `/ask`, `/jobs/*` |
 | `VECTOR_DB_PROVIDER` | No | `chroma` | Default backend |
 | `CHUNKING_STRATEGY` | No | `recursive` | Default chunking strategy |
 | `EMBEDDING_MODEL` | No | `all-MiniLM-L6-v2` | HuggingFace model name |
@@ -476,9 +496,11 @@ Tracked metrics per run:
 | `REDIS_URL` | No | `redis://localhost:6379/0` | Redis connection URL |
 | `CELERY_BROKER_URL` | No | `redis://localhost:6379/0` | Celery broker |
 | `CELERY_RESULT_BACKEND` | No | `redis://localhost:6379/0` | Celery result store |
-| `CHUNK_SIZE` | No | `500` | Words per chunk |
-| `CHUNK_OVERLAP` | No | `50` | Overlap between chunks |
-| `TOP_K` | No | `4` | Chunks retrieved per query |
+| `CHUNK_SIZE` | No | `800` | Words per chunk |
+| `CHUNK_OVERLAP` | No | `150` | Overlap between chunks |
+| `TOP_K` | No | `5` | Chunks retrieved per query |
+| `GRAFANA_ADMIN_USER` | No | `admin` | Grafana login (Docker Compose only) |
+| `GRAFANA_ADMIN_PASSWORD` | Recommended | `ragadmin` (dev-only) | Change before any real deployment |
 
 > Never hardcode credentials as field defaults in `src/config.py` — every
 > secret-shaped field must default to `""` and fail loudly (see
@@ -588,6 +610,29 @@ bash k8s/scripts/rollout.sh
 | `rag-api-monitor` | ServiceMonitor | rag-system | Prometheus scrape config |
 | `rag-alerts` | PrometheusRule | rag-system | Alert rules |
 | Prometheus + Grafana | Helm release | monitoring | Full observability stack |
+
+---
+
+## Production Readiness Checklist
+
+Fixed as part of the most recent hardening pass:
+
+- ✅ `X-API-Key` auth on `/ingest`, `/upload`, `/ask`, `/jobs/*` (`api/auth.py`) — **set `API_KEY` or these stay open**
+- ✅ `k8s/secrets/secrets.yaml` no longer contains real credentials (it previously did — see [Security guide](https://bhaviknagre.github.io/rag-system/guides/security/) for the incident and required rotation)
+- ✅ Grafana admin password is now `.env`-configurable (`GRAFANA_ADMIN_PASSWORD`) instead of hardcoded
+- ✅ PDF extraction upgraded (pdfplumber + cleaning pass) — see [Ingestion](https://bhaviknagre.github.io/rag-system/components/ingestion/)
+- ✅ `src/retrieval/retriever.py`'s `AttributeError` bug fixed
+- ✅ Broken/dead Helm-templating annotation removed from `k8s/api/deployment.yaml`
+
+Still worth doing before/soon after going live — not blocking, but real gaps:
+
+| Gap | Why it matters | Where |
+|---|---|---|
+| No automated test suite | `test_setup.py` is a manual smoke script, not CI-run tests; no coverage of `/ingest`, `/ask`, chunking, or the vector store factory | repo root, `src/` |
+| CI only builds docs | `.github/workflows/docs.yml` doesn't run tests, lint, or a Docker build check on PRs | `.github/workflows/` |
+| No TLS termination | Nginx listens on plain HTTP (port 80) only | `nginx/nginx.conf` |
+| CORS wildcard | `allow_origins=["*"]` — fine with no cookies/credentials in use, but scope it to real origins once there's a known frontend domain | `api/main.py` |
+| `/providers`, `/strategies`, `/health` ungated | Informational only (no mutation), but confirm that's acceptable for your threat model | `api/main.py` |
 
 ---
 

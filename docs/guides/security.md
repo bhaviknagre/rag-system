@@ -82,6 +82,31 @@ new package.
 
 ---
 
+## Incident: real credentials were committed in `k8s/secrets/secrets.yaml`
+
+A previous commit (`added the K8s manifest to the system`) checked in
+`k8s/secrets/secrets.yaml` with **real base64-encoded values** — a live
+Pinecone API key and a MongoDB Atlas URI with embedded username/password —
+instead of the placeholders the file's own comments described. Since this
+repo's remote is a public GitHub repository, those values were exposed
+publicly from the moment that commit was pushed.
+
+The file has been reset to placeholder values (`base64("your-key-here")`)
+and `API_KEY` was added alongside `PINECONE_API_KEY` / `MONGODB_ATLAS_URI`.
+**Rotating the real Pinecone key and MongoDB Atlas password is the
+responsibility of whoever owns those accounts** — treat both as
+compromised regardless of the file fix, since they remain visible in git
+history until/unless it is rewritten (`git filter-repo` + force-push),
+which was deliberately not done here to avoid breaking clones/forks
+without a deliberate decision to do so.
+
+**Going forward:** never put a real value directly in a file destined for
+`kubectl apply -f` and tracked in git. Prefer `kubectl create secret
+generic ... --from-literal=` run by hand or CI against the cluster, with
+the committed YAML holding only placeholders as documented.
+
+---
+
 ## Secrets — do not default them in code
 
 A previous revision of `src/config.py` shipped a **hardcoded MongoDB Atlas
@@ -122,12 +147,28 @@ only when the `mongodb` provider is actually selected.
 
 ## Authentication
 
-No authentication is implemented on any endpoint. This is appropriate for
-local/dev use behind a private network, but **before exposing this stack
-publicly**, add an auth layer — API key header check in
-`api/middleware.py`, or a reverse-proxy-level check in `nginx/nginx.conf`,
-are both minimal-footprint options that don't require touching pipeline
-logic.
+`api/auth.py` implements a shared-secret `X-API-Key` header check via a
+FastAPI dependency (`require_api_key`), applied to `POST /ingest`,
+`POST /upload`, `POST /ask`, `GET /jobs/{job_id}`, and
+`DELETE /jobs/{job_id}/cancel` in `api/main.py`. The expected key comes
+from the `API_KEY` environment variable.
+
+If `API_KEY` is unset, auth is skipped and a warning is logged once —
+this is deliberate, so local/dev usage (and the Quickstart flow) isn't
+broken by a hard requirement, but it means **an unset `API_KEY` is an
+open API**. Set `API_KEY` before exposing this stack beyond a trusted
+network:
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+# put the result in .env / k8s Secret as API_KEY
+```
+
+`/health`, `/providers`, `/strategies`, `/metrics`, `/`, and the web UI
+(`/rag-system`) are intentionally left ungated — none of them mutate
+state or run the LLM. The static web UI (`static/index.html`) has an
+API-key input field in the header that stores the value in
+`localStorage` and attaches it as `X-API-Key` on every protected call.
 
 ## Nginx rate limiting
 

@@ -1,7 +1,3 @@
-# PrometheusRule — defines alert rules in K8s-native way.
-# The prometheus operator picks these up automatically.
-# Same alerts as our alerts.yml but managed as K8s resources.
-
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:

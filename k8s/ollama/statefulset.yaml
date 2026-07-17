@@ -1,8 +1,3 @@
-# Ollama runs as a StatefulSet so the model volume
-# is permanently tied to ollama-0 pod identity.
-# An init container pulls the model on first boot —
-# subsequent restarts skip the pull since it is already on disk.
-
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -23,9 +18,6 @@ spec:
         app: ollama
         app.kubernetes.io/component: ollama
     spec:
-      # Init container pulls the model before main container starts.
-      # Runs once on first boot — skipped on subsequent restarts
-      # because the model is already in the volume.
       initContainers:
         - name: pull-model
           image: ollama/ollama:latest
@@ -84,7 +76,7 @@ spec:
               memory: "4Gi"
               cpu: "2000m"
 
-          # Liveness — restart if Ollama stops responding
+          # Liveness 
           livenessProbe:
             httpGet:
               path: /api/tags
@@ -94,7 +86,7 @@ spec:
             failureThreshold: 5
             timeoutSeconds: 10
 
-          # Readiness — only route traffic when model server is up
+          # Readiness 
           readinessProbe:
             httpGet:
               path: /api/tags
@@ -107,11 +99,6 @@ spec:
           volumeMounts:
             - name: ollama-models
               mountPath: /root/.ollama
-
-  # volumeClaimTemplates is the StatefulSet superpower —
-  # each pod replica gets its own PVC automatically.
-  # ollama-0 gets ollama-models-ollama-0
-  # ollama-1 would get ollama-models-ollama-1 (if scaled)
   volumeClaimTemplates:
     - metadata:
         name: ollama-models

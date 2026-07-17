@@ -1,9 +1,4 @@
 #!/bin/bash
-# Zero-downtime rolling update script.
-# Rebuilds the image and rolls out new version
-# to API + Worker with no downtime.
-# Usage: bash k8s/scripts/rollout.sh
-
 set -e
 
 GREEN='\033[0;32m'

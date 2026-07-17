@@ -15,8 +15,6 @@ _mongo_client: Optional[MongoClient] = None
 
 
 def _get_mongo_client() -> MongoClient:
-    # Built lazily so importing this module never requires MONGODB_ATLAS_URI —
-    # only deployments that actually select the mongodb provider need it set.
     global _mongo_client
     if _mongo_client is None:
         if not settings.mongodb_atlas_uri:
@@ -32,7 +30,6 @@ def _get_mongo_client() -> MongoClient:
 
 
 # Backend
-
 def _build_chroma() -> VectorStore:
     from langchain_chroma import Chroma
     import chromadb
@@ -215,7 +212,6 @@ def reset_store(provider: Optional[str] = None):
             logger.warning(f"Pinecone index '{settings.pinecone_index_name}' does not exist yet. Skipping reset.")
 
     elif provider == "mongodb":
-        # Use the shared client with SSL configuration attached
         _get_mongo_client()[settings.mongodb_db_name][settings.mongodb_collection_name].drop()
         logger.info(f"MongoDB collection '{settings.mongodb_collection_name}' dropped")
 
@@ -242,7 +238,6 @@ def count_chunks(provider: Optional[str] = None) -> int:
             return stats.total_vector_count
 
         elif provider == "mongodb":
-            # Use the shared client with SSL configuration attached
             return _get_mongo_client()[settings.mongodb_db_name][settings.mongodb_collection_name].count_documents({})
 
     except Exception as e:

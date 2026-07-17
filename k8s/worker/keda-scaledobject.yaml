@@ -13,16 +13,14 @@ spec:
     kind: Deployment
     name: rag-worker
 
-  # Scale to zero when queue is empty (saves memory on Minikube)
+  # Scale to zero when queue is empty 
   minReplicaCount: 0
   maxReplicaCount: 10
 
   # How long to wait before scaling down after queue empties
-  cooldownPeriod: 60       # 60s cooldown before scale-to-zero
-
+  cooldownPeriod: 60      
   # How often KEDA polls the scaler
-  pollingInterval: 10      # check queue every 10 seconds
-
+  pollingInterval: 10     
   triggers:
     - type: redis
       metadata:
@@ -33,7 +31,6 @@ spec:
         listName: celery
 
         # Scale up when queue has more than this many messages per replica
-        # 2 messages per worker (each worker handles 2 concurrent tasks)
         listLength: "2"
 
         # Database index (matches CELERY_BROKER_URL redis://redis-service:6379/0)

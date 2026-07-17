@@ -1,7 +1,3 @@
-# Nginx Ingress — single entry point for all services.
-# Path-based routing to API, Flower, Grafana, Prometheus.
-# Rate limiting and size limits applied at ingress level.
-
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -53,8 +49,6 @@ spec:
                   number: 80
 
 ---
-# Separate Ingress for monitoring services
-# in their own namespace (monitoring)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -66,7 +60,6 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
-    # Strip /grafana prefix before forwarding to Grafana
     nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   rules:
@@ -93,7 +86,6 @@ spec:
                   number: 9090
 
 ---
-# Ingress for Flower (in rag-system namespace)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

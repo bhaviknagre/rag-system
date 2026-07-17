@@ -1,9 +1,3 @@
-# Celery worker deployment.
-# No replicas set here — KEDA ScaledObject controls replica count.
-# Workers scale from 0 (idle) to 10 (busy) based on Redis queue depth.
-# Setting replicas: 0 here means zero workers when queue is empty —
-# saves memory on Minikube significantly.
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,7 +7,6 @@ metadata:
     app.kubernetes.io/name: rag-system
     app.kubernetes.io/component: worker
 spec:
-  # DO NOT set replicas here — KEDA manages this
   selector:
     matchLabels:
       app: rag-worker
@@ -23,12 +16,11 @@ spec:
         app: rag-worker
         app.kubernetes.io/component: worker
     spec:
-      # Give running tasks time to finish before pod is killed
-      terminationGracePeriodSeconds: 660    # matches soft_time_limit + buffer
+      terminationGracePeriodSeconds: 660    
 
       containers:
         - name: rag-worker
-          image: rag-api:latest             # same image as API — contains all code
+          image: rag-api:latest             
           imagePullPolicy: Never
           command:
             - celery
@@ -40,7 +32,7 @@ spec:
             - --max-tasks-per-child=50
             - --without-gossip
             - --without-mingle
-            - -E                            # enable events for Flower
+            - -E                           
 
           # Load all config from ConfigMap
           envFrom:
@@ -68,7 +60,7 @@ spec:
               memory: "2Gi"
               cpu: "1500m"
 
-          # Liveness — restart worker if it stops responding to Celery ping
+          # Liveness 
           livenessProbe:
             exec:
               command:

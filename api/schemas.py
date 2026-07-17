@@ -62,7 +62,7 @@ class HealthResponse(BaseModel):
     chunk_counts: dict
 
 
-# Jobs (Celery background tasks)
+# Jobs
 
 class JobSubmittedResponse(BaseModel):
     job_id: str = Field(..., description="Use this ID to poll /jobs/{job_id}")

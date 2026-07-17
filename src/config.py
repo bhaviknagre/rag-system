@@ -17,9 +17,10 @@ class Settings(BaseSettings):
     mongodb_collection_name: str = "document_chunks"
     mongodb_vector_index_name: str = "vector_index"
     chunking_strategy: Literal["recursive", "semantic", "sentence_window"] = "recursive"
-    chunk_size: int = 500
-    chunk_overlap: int = 50
-    top_k: int = 4
+    chunk_size: int = 800
+    chunk_overlap: int = 150
+    top_k: int = 5
+    api_key: str = ""
     redis_url: str = "redis://localhost:6379/0"
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/0"
@@ -28,6 +29,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"  # .env also carries docker-compose-only vars (e.g. GRAFANA_ADMIN_*)
 
 
 settings = Settings()
