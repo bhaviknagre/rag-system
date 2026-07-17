@@ -425,7 +425,6 @@ Tracked metrics per run:
 | Grafana | http://localhost:3000 | admin / ragadmin |
 | Prometheus | http://localhost:9090 | — |
 | Flower | http://localhost:5555 | — |
-| API metrics | http://localhost/metrics | — |
 
 > Change the Grafana admin password (`GF_SECURITY_ADMIN_PASSWORD` in
 > `docker-compose.yml`) before any real deployment — `ragadmin` is a
