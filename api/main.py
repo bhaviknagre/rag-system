@@ -326,6 +326,11 @@ async def upload_document(
     save_dir.mkdir(parents=True, exist_ok=True)
     save_path = save_dir / file.filename
 
+    if ingest_immediately:
+        for existing in save_dir.iterdir():
+            if existing.is_file():
+                existing.unlink()
+
     try:
         with open(save_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -349,7 +354,7 @@ async def upload_document(
             kwargs={
                 "provider": active_provider,
                 "strategy": active_strategy,
-                "reset": False,
+                "reset": True,
                 "raw_dir": "data/raw"
             }
         )
